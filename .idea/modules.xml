@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ProjectModuleManager">
+    <modules>
+      <module fileurl="file:///data/home/andrey/AndroidStudioProjects/Chatter/Chatter.iml" filepath="/data/home/andrey/AndroidStudioProjects/Chatter/Chatter.iml" />
+      <module fileurl="file:///data/home/andrey/AndroidStudioProjects/Chatter/app/app.iml" filepath="/data/home/andrey/AndroidStudioProjects/Chatter/app/app.iml" />
+    </modules>
+  </component>
+</project>
