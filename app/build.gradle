@@ -22,6 +22,12 @@ android {
     }
 }
 
+kotlin {
+    experimental {
+        coroutines 'enable'
+    }
+}
+
 dependencies {
     implementation fileTree(dir: 'libs', include: ['*.jar'])
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jre7:$kotlin_version"
@@ -33,4 +39,5 @@ dependencies {
     androidTestImplementation 'com.android.support.test.espresso:espresso-core:3.0.1'
     compile 'com.neovisionaries:nv-websocket-client:2.3'
     implementation 'com.android.support:design:26.1.0'
+    compile "org.jetbrains.kotlinx:kotlinx-coroutines-core:0.21"
 }

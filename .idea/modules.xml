@@ -2,9 +2,11 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/Chatter.iml" filepath="$PROJECT_DIR$/Chatter.iml" />
       <module fileurl="file:///data/home/andrey/AndroidStudioProjects/Chatter/Chatter.iml" filepath="/data/home/andrey/AndroidStudioProjects/Chatter/Chatter.iml" />
+      <module fileurl="file://$PROJECT_DIR$/Chatter.iml" filepath="$PROJECT_DIR$/Chatter.iml" />
+      <module fileurl="file://$PROJECT_DIR$/app/app.iml" filepath="$PROJECT_DIR$/app/app.iml" />
       <module fileurl="file:///data/home/andrey/AndroidStudioProjects/Chatter/app/app.iml" filepath="/data/home/andrey/AndroidStudioProjects/Chatter/app/app.iml" />
+      <module fileurl="file://$PROJECT_DIR$/chatter_client_android.iml" filepath="$PROJECT_DIR$/chatter_client_android.iml" />
     </modules>
   </component>
 </project>

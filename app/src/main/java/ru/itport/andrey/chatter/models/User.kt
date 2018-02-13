@@ -1,6 +1,7 @@
 package ru.itport.andrey.chatter.models
 
 import android.content.Context
+import ru.itport.andrey.chatter.MainActivity
 import ru.itport.andrey.chatter.utils.showAlertDialog
 
 /**
@@ -14,7 +15,6 @@ object User {
 
     fun validateRegister(params: Map<String,String>,context:Context): Boolean {
         var errors = false
-        println(params)
         if (params["login"]?.length==0) {
             showAlertDialog("Error", "Login is required", context)
             errors = true
@@ -31,12 +31,15 @@ object User {
             showAlertDialog("Error", "Email is required", context)
             errors = true
         }
-        return errors
+        return !errors
     }
 
     fun register(params: Map<String,String>,context:Context) {
         if (validateRegister(params,context)) {
-
+            val activity = context as MainActivity
+            var register_packet: HashMap<String,String> = params as HashMap<String, String>
+            register_packet.put("action","register_user")
+            activity.mService.sendMessage(register_packet)
         }
     }
 }
