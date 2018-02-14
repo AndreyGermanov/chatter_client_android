@@ -43,12 +43,12 @@ class MainActivity : AppCompatActivity(),LoginScreen.OnFragmentInteractionListen
         radioGroup.setOnCheckedChangeListener(this)
         val serviceIntent = Intent(this,MessageService::class.java)
         bindService(serviceIntent,mConnection, Context.BIND_AUTO_CREATE)
+        User.context = this
     }
 
     override fun onRegisterButtonClick() {
         var signupScreen = supportFragmentManager.fragments[0] as signupScreen
         var errors = false
-
         User.register(mapOf("login" to signupScreen.signupLoginField.text.toString(),
                 "password" to signupScreen.signupPasswordField.text.toString(),
                 "password_again" to signupScreen.signupPasswordAgainField.text.toString(),
@@ -56,7 +56,13 @@ class MainActivity : AppCompatActivity(),LoginScreen.OnFragmentInteractionListen
         ),this)
     }
 
-    override fun onFragmentInteraction(uri: Uri) {
+    override fun onLoginButtonClick() {
+        var loginScreen = supportFragmentManager.fragments[0] as LoginScreen
+        User.login(mapOf("login" to loginScreen.loginField.text.toString(),
+                "password" to loginScreen.passwordField.text.toString()),this)
+    }
+
+    fun onFragmentInteraction(uri: Uri) {
 
     }
 
