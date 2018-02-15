@@ -78,4 +78,9 @@ class MainActivity : AppCompatActivity(),LoginScreen.OnFragmentInteractionListen
             }
         }
     }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        unbindService(mConnection)
+    }
 }

@@ -10,4 +10,11 @@
     <string name="signupPasswordText">Password</string>
     <string name="passwordAgainText">Again</string>
     <string name="signupEmailText">Email</string>
+    <string name="profileSettingsText">Profile Settings</string>
+    <string name="firstNameLabel">First name</string>
+    <string name="lastNameText">Last Name</string>
+    <string name="genderText">Gender</string>
+    <string name="maleText">Male</string>
+    <string name="birthDateText">Date of birth</string>
+    <string name="saveProfileChangesText">Save profile changes</string>
 </resources>
