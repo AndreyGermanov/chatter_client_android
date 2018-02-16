@@ -11,6 +11,8 @@ import android.graphics.BitmapFactory
 import android.os.Handler
 import android.os.Looper
 import android.os.Message
+import android.view.Gravity
+import android.widget.Toast
 import kotlinx.coroutines.experimental.*
 import org.json.JSONObject
 import ru.itport.andrey.chatter.MainActivity
@@ -85,11 +87,21 @@ object User: WebSocketResponseHandler {
                             activity.startActivity(intent)
                             activity.finish()
                         //}
-                        this.image = BitmapFactory.decodeResource(context.resources, R.drawable.profile)
+                        if (response.has("image")) {
+                            val image = response.get("image") as ByteArray
+                            this.image = BitmapFactory.decodeByteArray(image,0,image.size)
+                        } else {
+                            this.image = BitmapFactory.decodeResource(context.resources, R.drawable.profile)
+                        }
+
                     }
                 } else if (response.getString("action") == "update_user_profile") {
                     if (response.getString("status") == "ok") {
                         this.imageChanged = false
+                        val toast = Toast.makeText(context.applicationContext,"Profile updated successfully",Toast.LENGTH_SHORT)
+                        toast.setGravity(Gravity.CENTER,0,0)
+                        toast.show()
+
                     } else {
                         showAlertDialog("Error",response.getString("message"),context)
                     }
@@ -169,18 +181,21 @@ object User: WebSocketResponseHandler {
     fun updateProfile(params: Map<String,String>,bitmap:Bitmap?,context:Context) {
         if (validateProfileChange(params,context)) {
             val activity = context as ProfileSettings
+            var byteArray: ByteArray? = null
+            if (bitmap!=null) {
+                val stream = ByteArrayOutputStream()
+                bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream)
+                byteArray = stream.toByteArray()
+            }
             var register_packet: HashMap<String,Any> = params as HashMap<String, Any>
             register_packet.put("user_id",this.id)
             register_packet.put("action","update_user")
             register_packet.put("request_id", UUID.randomUUID().toString())
             register_packet.put("sender",this)
-            activity.mService.scheduleRequest(register_packet)
-            if (bitmap!=null) {
-                val stream = ByteArrayOutputStream()
-                bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream)
-                val byteArray = stream.toByteArray()
-                activity.mService.ws.sendBinary(byteArray)
+            if (byteArray != null) {
+                register_packet.put("file",byteArray)
             }
+            activity.mService.scheduleRequest(register_packet)
         }
     }
 

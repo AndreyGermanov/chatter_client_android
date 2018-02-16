@@ -14,6 +14,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import ru.itport.andrey.chatter.models.User
 import java.util.*
+import java.util.zip.Adler32
 import kotlin.collections.HashMap
 
 public interface WebSocketResponseHandler {
@@ -27,6 +28,7 @@ public class MessageService : Service() {
     val sentRequests: HashMap<String,WebSocketResponseHandler> = HashMap<String,WebSocketResponseHandler>()
     val requestsQueue: HashMap<String,Any> = HashMap<String,Any>()
     var requestsTimer : Timer = Timer()
+    val pending_files = HashMap<Long,JSONObject>()
 
     init {
         runBlocking {
@@ -88,9 +90,26 @@ public class MessageService : Service() {
             var responseObject = JSONObject(message)
             if (responseObject.has("request_id")) {
                 if (this@MessageService.sentRequests.containsKey(responseObject.getString("request_id"))) {
-                    this@MessageService.sentRequests.get(responseObject.getString("request_id"))!!.handleResponse(responseObject)
-                    this@MessageService.sentRequests.remove(responseObject.getString("request_id"))
+                    if (!responseObject.has("checksum")) {
+                        this@MessageService.sentRequests.get(responseObject.getString("request_id"))!!.handleResponse(responseObject)
+                        this@MessageService.sentRequests.remove(responseObject.getString("request_id"))
+                    } else {
+                        this@MessageService.pending_files.set(responseObject.getString("checksum").toLong(),responseObject)
+                    }
                 }
+            }
+        }
+
+        override fun onBinaryMessage(websocket: WebSocket?, binary: ByteArray?) {
+            val checksumEngine = Adler32()
+            checksumEngine.update(binary)
+            val checksum = checksumEngine.value
+            if (this@MessageService.pending_files.containsKey(checksum) && binary != null) {
+                val responseObject = this@MessageService.pending_files.get(checksum)!!
+                responseObject.put("image",binary)
+                this@MessageService.sentRequests.get(responseObject.getString("request_id"))!!.handleResponse(responseObject)
+                this@MessageService.sentRequests.remove(responseObject.getString("request_id"))
+                this@MessageService.pending_files.remove(checksum)
             }
         }
     }
@@ -102,13 +121,23 @@ public class MessageService : Service() {
     protected fun sendMessage(messageObject:Map<String,Any>) {
         var json = JSONObject()
         var indexes = messageObject.keys
+        var byteArray: ByteArray? = null
         for (index in indexes) {
             if (messageObject.get(index) is String) {
                 json.put(index, messageObject.get(index)!!)
+            } else if (index == "file") {
+                byteArray = messageObject.get("file") as ByteArray
+                val checksumEngine = Adler32()
+                checksumEngine.update(byteArray)
+                val checksum = checksumEngine.getValue()
+                json.put("checksum",checksum)
             }
         }
         launch {
             this@MessageService.ws.sendText(json.toString())
+            if (byteArray != null) {
+                this@MessageService.ws.sendBinary(byteArray)
+            }
         }
     }
 
