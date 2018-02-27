@@ -57,8 +57,10 @@ fun getRealPathFromURI(contentUri: Uri,context:Context): String {
  */
 fun toJSONString(response: JSONObject):String {
     for ((index,i) in response) {
-        if (i !is String && i !is Int && i !is Long && i !is Boolean) {
+        if (i !is String && i !is Int && i !is Long && i !is Boolean && i !is JSONObject) {
             response.set(index,i.toString())
+        } else if (i is JSONObject) {
+            response.set(index, toJSONString(i))
         }
     }
     val result = response.toJSONString()

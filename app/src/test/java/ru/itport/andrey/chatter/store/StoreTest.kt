@@ -20,4 +20,12 @@ class StoreTest {
         assertEquals("Should be able to change values and read them from different places","test",loginForm2["login"])
     }
 
+    @Test
+    fun loadStateFromStore() {
+        val state = appStore.state as JSONObject
+        assertTrue("Initial state is JSONObject",state is JSONObject)
+        val loginForm = state["LoginForm"] as JSONObject
+        assertEquals("Initial state has correct inital values",LoginFormMode.LOGIN,loginForm["mode"] as LoginFormMode)
+    }
+
 }

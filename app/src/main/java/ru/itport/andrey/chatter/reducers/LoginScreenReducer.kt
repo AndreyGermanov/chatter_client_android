@@ -5,7 +5,6 @@
 package ru.itport.andrey.chatter.reducers
 
 import org.json.simple.JSONObject
-import org.json.simple.parser.JSONParser
 import ru.itport.andrey.chatter.actions.LoginScreenActions
 import ru.itport.andrey.chatter.store.LoginFormMode
 
@@ -14,11 +13,12 @@ import ru.itport.andrey.chatter.store.LoginFormMode
  * to actions
  */
 fun LoginScreenReducer(state:JSONObject,action:Any):JSONObject {
-    val parser = JSONParser()
     val newState = state
-    val act = action as HashMap<String,Any>
-    when (act.get("type") as LoginScreenActions.LoginScreenActionTypes) {
-        LoginScreenActions.LoginScreenActionTypes.SWITCH_MODE -> newState["mode"] = act.get("mode") as LoginFormMode
+    if (action is JSONObject) {
+        val act = action as JSONObject
+        when (act["type"] as LoginScreenActions.LoginScreenActionTypes) {
+            LoginScreenActions.LoginScreenActionTypes.SWITCH_MODE -> newState["mode"] = act["mode"] as LoginFormMode
+        }
     }
     return newState
 }

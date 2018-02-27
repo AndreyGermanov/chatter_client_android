@@ -1,5 +1,6 @@
 package ru.itport.andrey.chatter.actions
 
+import org.json.simple.JSONObject
 import ru.itport.andrey.chatter.store.LoginFormMode
 
 /**
@@ -28,10 +29,10 @@ class LoginScreenActions {
          * from "Register" to "Login", when user presses appropriate button on
          * top of screen
          */
-        public fun switchMode(mode:LoginFormMode):Any {
-            return mapOf(
+        fun switchMode(mode:LoginFormMode): JSONObject {
+            return JSONObject(mapOf(
                     "type" to LoginScreenActions.LoginScreenActionTypes.SWITCH_MODE,
-                    "mode" to mode
+                    "mode" to mode)
 
             )
         }
