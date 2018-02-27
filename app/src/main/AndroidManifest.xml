@@ -22,12 +22,6 @@
             </intent-filter>
         </activity>
 
-        <service
-            android:name=".core.MessageService"
-            android:enabled="true"
-            android:exported="true" />
-
-        <activity android:name=".ProfileSettings"></activity>
 
         <provider
             android:name="android.support.v4.content.FileProvider"

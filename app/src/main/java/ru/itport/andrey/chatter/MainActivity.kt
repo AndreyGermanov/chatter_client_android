@@ -1,86 +1,137 @@
 package ru.itport.andrey.chatter
 
-import android.content.ComponentName
-import android.content.Context
-import android.content.Intent
-import android.content.ServiceConnection
-import android.net.Uri
+import android.graphics.Color
 import android.support.v7.app.AppCompatActivity
 import android.os.Bundle
-import android.os.IBinder
-import android.widget.RadioGroup
-import ru.itport.andrey.chatter.core.MessageService
-import ru.itport.andrey.chatter.models.User
-import ru.itport.andrey.chatter.utils.showAlertDialog
+import android.view.View
+import trikita.anvil.DSL.*
+import trikita.anvil.BaseDSL.WRAP
+import android.widget.LinearLayout
+import org.json.JSONObject
+import ru.itport.andrey.chatter.actions.LoginScreenActions
+import ru.itport.andrey.chatter.store.LoginFormMode
+import ru.itport.andrey.chatter.store.appStore
+import trikita.anvil.Anvil
 
-class MainActivity : AppCompatActivity(),LoginScreen.OnFragmentInteractionListener, signupScreen.OnFragmentInteractionListener, RadioGroup.OnCheckedChangeListener {
+import trikita.anvil.BaseDSL
+import trikita.anvil.RenderableView
 
-    lateinit var mService: MessageService
 
-    private var mConnection = object: ServiceConnection {
 
-        var isBound = false;
+class MainActivity : AppCompatActivity() {
 
-        override fun onServiceConnected(p0: ComponentName?, service: IBinder?) {
-            if (service!=null) {
-                val binder = service as MessageService.ServiceBinder
-                mService = binder.getService()
-                isBound = true
-            }
-        }
-        override fun onServiceDisconnected(p0: ComponentName?) {
-            isBound = false
-        }
+    var state:JSONObject
+
+    init {
+        val currentState = appStore.getState() as JSONObject
+        state = currentState["LoginForm"] as JSONObject
     }
-
+    /**
+     * Function runs when activity starts or restarts
+     * It draws view of current activity and subscribes to application store,
+     * which provides notifications about any changes in application state,
+     * which requires to update current view
+     */
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
-        val loginScreen = LoginScreen()
-        loginScreen.arguments = intent.extras
-        supportFragmentManager.beginTransaction().replace(R.id.signinScroll,loginScreen).commit()
-        var radioGroup = findViewById<RadioGroup>(R.id.radioGroup)
-        radioGroup.setOnCheckedChangeListener(this)
-        val serviceIntent = Intent(this,MessageService::class.java)
-        bindService(serviceIntent,mConnection, Context.BIND_AUTO_CREATE)
-        User.context = this
-    }
-
-    override fun onRegisterButtonClick() {
-        var signupScreen = supportFragmentManager.fragments[0] as signupScreen
-        var errors = false
-        User.register(mapOf("login" to signupScreen.signupLoginField.text.toString(),
-                "password" to signupScreen.signupPasswordField.text.toString(),
-                "password_again" to signupScreen.signupPasswordAgainField.text.toString(),
-                "email" to signupScreen.signupEmailField.text.toString()
-        ),this)
-    }
-
-    override fun onLoginButtonClick() {
-        var loginScreen = supportFragmentManager.fragments[0] as LoginScreen
-        User.login(mapOf("login" to loginScreen.loginField.text.toString(),
-                "password" to loginScreen.passwordField.text.toString()),this)
-    }
-
-    fun onFragmentInteraction(uri: Uri) {
-
-    }
-
-    override fun onCheckedChanged(p0: RadioGroup?, p1: Int) {
-        when (p1) {
-            R.id.signinSwitchBtn -> {
-                val signinScreen = LoginScreen()
-                supportFragmentManager.beginTransaction().replace(R.id.signinScroll,signinScreen).commit()
-            }
-            R.id.signupSwitchBtn -> {
-                val signupScreen = signupScreen()
-                supportFragmentManager.beginTransaction().replace(R.id.signinScroll, signupScreen).commit()
-            }
+        setContentView(getView())
+        appStore.subscribe {
+            val currentState = appStore.getState() as JSONObject
+            state = currentState["LoginForm"] as JSONObject
+            Anvil.render()
         }
     }
 
-    override fun onDestroy() {
-        super.onDestroy()
-        unbindService(mConnection)
+    /**
+     * Function used to construct view, it draws all items
+     * and provides it to setContentView function
+     */
+    fun getView() : RenderableView {
+        return object: RenderableView(this) {
+            override fun view() {
+                linearLayout {
+                    size(MATCH, MATCH)
+                    padding(dip(8))
+                    orientation(LinearLayout.VERTICAL)
+                    linearLayout {
+                        gravity(BaseDSL.CENTER_HORIZONTAL)
+                        size(MATCH, WRAP)
+                        orientation(LinearLayout.HORIZONTAL)
+                        button {
+                            text("Login")
+                            backgroundColor(Color.BLUE)
+                            textColor(Color.WHITE)
+                            onClick { v ->
+                                appStore.dispatch(LoginScreenActions.switchMode(LoginFormMode.LOGIN))
+                            }
+                        }
+                        button {
+                            text("Register")
+                            backgroundColor(Color.WHITE)
+                            textColor(Color.BLACK)
+                            onClick { v ->
+                                appStore.dispatch(LoginScreenActions.switchMode(LoginFormMode.REGISTER))
+                            }
+                        }
+                    }
+                    linearLayout {
+                        orientation(LinearLayout.VERTICAL)
+                        visibility(state["mode"] as LoginFormMode == LoginFormMode.LOGIN)
+                        tableLayout {
+                            size(MATCH,MATCH)
+                            tableRow {
+                                orientation(LinearLayout.HORIZONTAL)
+                                textView {
+                                    text("Login")
+                                }
+                                editText {
+                                    text("")
+                                }
+                            }
+                            tableRow {
+                                orientation(LinearLayout.HORIZONTAL)
+                                textView {
+                                    text("Password")
+                                }
+                                editText {
+                                    text("")
+                                }
+                            }
+                        }
+                        tableLayout {
+                            size(MATCH,WRAP)
+                            button {
+                                size(MATCH, WRAP)
+                                text("LOGIN")
+                                onClick { v ->
+
+                                }
+                            }
+                        }
+                    }
+                    linearLayout {
+                        size(MATCH,MATCH)
+                        visibility(state["mode"] as LoginFormMode == LoginFormMode.REGISTER)
+                        orientation(LinearLayout.VERTICAL)
+                        tableLayout {
+                            tableRow {
+                                orientation(LinearLayout.HORIZONTAL)
+
+                            }
+                        }
+                        tableLayout {
+                            size(MATCH,WRAP)
+                            button {
+                                size(MATCH, WRAP)
+                                text("REGISTER")
+                                onClick { v ->
+
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }
