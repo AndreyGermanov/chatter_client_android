@@ -10,6 +10,9 @@ import android.content.DialogInterface
 import android.net.Uri
 import android.provider.MediaStore
 import org.json.simple.JSONObject
+import android.text.TextUtils
+
+
 
 
 /**
@@ -64,5 +67,21 @@ fun toJSONString(response: JSONObject):String {
         }
     }
     val result = response.toJSONString()
+    return result
+}
+
+/**
+ * Function validates email address
+ *
+ * @param email Email address to check
+ * @return True if provided email address is correct and False otherwise
+ */
+fun isValidEmail(email: CharSequence): Boolean {
+    var result = false
+    try {
+        result = android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()
+    } catch (e:Exception) {
+        result = false
+    }
     return result
 }

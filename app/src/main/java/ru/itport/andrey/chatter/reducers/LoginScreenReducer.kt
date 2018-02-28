@@ -13,11 +13,14 @@ import ru.itport.andrey.chatter.store.LoginFormMode
  * to actions
  */
 fun LoginScreenReducer(state:JSONObject,action:Any):JSONObject {
-    val newState = state
+
+
+    // Reducer process
+    var newState = state
     if (action is JSONObject) {
-        val act = action as JSONObject
-        when (act["type"] as LoginScreenActions.LoginScreenActionTypes) {
-            LoginScreenActions.LoginScreenActionTypes.SWITCH_MODE -> newState["mode"] = act["mode"] as LoginFormMode
+        when (action["type"] as LoginScreenActions.LoginScreenActionTypes) {
+            LoginScreenActions.LoginScreenActionTypes.SWITCH_MODE -> newState["mode"] = action["mode"] as LoginFormMode
+            LoginScreenActions.LoginScreenActionTypes.CHANGE_TEXT_FIELD -> newState[action["property_name"].toString()] = action["property_value"]
         }
     }
     return newState

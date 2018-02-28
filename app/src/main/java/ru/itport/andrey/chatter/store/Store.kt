@@ -4,7 +4,6 @@
 package ru.itport.andrey.chatter.store
 
 import org.json.simple.JSONObject
-import redux.api.Store
 import redux.createStore
 import ru.itport.andrey.chatter.reducers.rootReducer
 
@@ -18,8 +17,8 @@ enum class LoginFormMode {
 }
 
 /**
- * Structure which represents whole state of application, used by Redux-Kotlin to maintain
- * consistend UI
+ * Structure which represents whole state of application, used by Redux to maintain
+ * consistent UI
  */
 var appState = JSONObject(mapOf(
         "current_activity" to "LoginForm",
@@ -28,7 +27,9 @@ var appState = JSONObject(mapOf(
                 "login" to "",
                 "email" to "",
                 "password" to "",
-                "confirm_password" to ""
+                "confirm_password" to "",
+                "show_spinner" to false,
+                "errors" to JSONObject()
         )
     )
 ))
