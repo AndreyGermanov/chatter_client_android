@@ -1,7 +1,6 @@
 package ru.itport.andrey.chatter.core
 
 import android.app.Service
-import android.content.Context
 import android.content.Intent
 import android.os.Binder
 import android.os.IBinder
@@ -9,11 +8,13 @@ import com.neovisionaries.ws.client.WebSocket
 import com.neovisionaries.ws.client.WebSocketAdapter
 import com.neovisionaries.ws.client.WebSocketFactory
 import com.neovisionaries.ws.client.WebSocketFrame
-import kotlinx.coroutines.experimental.selects.whileSelect
-import org.json.simple.JSONArray
 import org.json.simple.JSONObject
+import org.json.simple.parser.JSONParser
 import ru.itport.andrey.chatter.utils.toJSONString
 import java.util.*
+import java.util.logging.Level
+import java.util.logging.Logger
+import kotlin.collections.HashMap
 
 /**
  * Interface, which must implement class of any object, which want to
@@ -58,6 +59,31 @@ class MessageCenter : Service() {
          */
         override fun onTextMessage(websocket: WebSocket?, text: String?) {
             super.onTextMessage(websocket, text)
+            val logger = Logger.getLogger("websocket")
+            val parser = JSONParser()
+            var response = JSONObject()
+            try {
+                response = parser.parse(text) as JSONObject
+            } catch (e:Exception) {
+                logger.log(Level.SEVERE,"Error parsing response from server '"+e.message+"'")
+            }
+            if (!response.isEmpty()) {
+                if (!response.contains("request_id")) {
+                    logger.log(Level.SEVERE, "Error parsing response from server. Does not contain request_id")
+                } else if (!this@MessageCenter.pending_responses_queue.contains(response.get("request_id").toString())) {
+                    logger.log(Level.SEVERE, "Error parsing response from server. Could not find request_id of this response in Pending responses queue")
+                } else {
+                    val pending_response = this@MessageCenter.pending_responses_queue.get(response.get("request_id")) as HashMap<String, Any>
+                    if (!pending_response.contains("sender")) {
+                        logger.log(Level.SEVERE, "Error parsing response from server. No object to pass response to")
+                    } else if (pending_response.get("sender") !is MessageCenterResponseReceiver) {
+                        logger.log(Level.SEVERE, "Error parsing response from server. Object to pass response to does not implement MessageCenterResponseReceiver interface")
+                    } else {
+                        val sender = pending_response.get("sender") as MessageCenterResponseReceiver
+                        sender.handleResponse(response.get("request_id").toString(), response)
+                    }
+                }
+            }
         }
 
         /**
@@ -68,6 +94,7 @@ class MessageCenter : Service() {
         }
     }
 
+    val messageListener = WebSocketMessageAdapter()
 
     /**
      * WebSocket server credentials
@@ -103,6 +130,32 @@ class MessageCenter : Service() {
      * request will be removed from queue by background cronjob
      */
     private val REQUESTS_QUEUE_TIMEOUT = 10
+
+    /**
+     * Result codes for addRequest operation
+     */
+    enum class AddRequestsQueueResult {
+        REQUESTS_QUEUE_RESULT_OK,
+        REQUESTS_QUEUE_RESULT_ERROR_EMPTY_REQUEST,
+        REQUESTS_QUEUE_RESULT_ERROR_NO_REQUEST_ID,
+        REQUESTS_QUEUE_RESULT_ERROR_DUPLICATE_REQUEST_ID,
+        REQUESTS_QUEUE_RESULT_ERROR_NO_ACTION,
+        REQUESTS_QUEUE_RESULT_ERROR_NO_SENDER,
+        REQUESTS_QUEUE_RESULT_ERROR_INCORRECT_SENDER;
+        fun getMessage():String {
+            var result = ""
+            when (this) {
+                REQUESTS_QUEUE_RESULT_OK -> result = ""
+                REQUESTS_QUEUE_RESULT_ERROR_EMPTY_REQUEST -> result = "Request is empty"
+                REQUESTS_QUEUE_RESULT_ERROR_NO_REQUEST_ID -> result = "Request must have unique request_id"
+                REQUESTS_QUEUE_RESULT_ERROR_DUPLICATE_REQUEST_ID -> result = "Request with this request_id already exists in queue"
+                REQUESTS_QUEUE_RESULT_ERROR_NO_ACTION -> result = "Request must have an action"
+                REQUESTS_QUEUE_RESULT_ERROR_NO_SENDER -> result = "Request must have link to sender object"
+                REQUESTS_QUEUE_RESULT_ERROR_INCORRECT_SENDER -> result = "Sender object does not implement interface MessageCenterResponseReceiver"
+            }
+            return result
+        }
+    }
 
     /**
      * Queue of requests, which was moved from "requests_queue" after sending to the server.
@@ -152,9 +205,13 @@ class MessageCenter : Service() {
      */
     override fun onCreate() {
         super.onCreate()
-        ws = WebSocketFactory().createSocket("ws://"+SERVER_HOST+":"+SERVER_PORT+SERVER_ENDPOINT)
-        ws.connect()
-        ws.addListener(WebSocketMessageAdapter())
+        try {
+            ws = WebSocketFactory().createSocket("ws://" + SERVER_HOST + ":" + SERVER_PORT + SERVER_ENDPOINT)
+            ws.connect()
+        } catch (e:Exception) {
+            connected = false
+        }
+        ws.addListener(messageListener)
         timer.schedule(Cronjob(),0,1000)
     }
 
@@ -176,48 +233,60 @@ class MessageCenter : Service() {
      *
      * @return True if request successfully added or false otherwise
      */
-    fun addRequest(request:HashMap<String,Any>):Boolean {
+    fun addRequest(request:HashMap<String,Any>):AddRequestsQueueResult {
         if (!request.contains("request_id") || request.get("request_id").toString().isEmpty()) {
-            return false
+            return AddRequestsQueueResult.REQUESTS_QUEUE_RESULT_ERROR_NO_REQUEST_ID
         }
         if (!request.contains("action") || request.get("action").toString().isEmpty()) {
-            return false
+            return AddRequestsQueueResult.REQUESTS_QUEUE_RESULT_ERROR_NO_ACTION
         }
-        if (!request.contains("sender") || request.get("sender") !is MessageCenterResponseReceiver) {
-            return false
+        if (!request.contains("sender")) {
+            return AddRequestsQueueResult.REQUESTS_QUEUE_RESULT_ERROR_NO_SENDER
+        }
+        if (request.get("sender") !is MessageCenterResponseReceiver) {
+            return AddRequestsQueueResult.REQUESTS_QUEUE_RESULT_ERROR_INCORRECT_SENDER
         }
         if (!requests_queue.contains(request.get("request_id").toString())) {
             request.set("timestamp",System.currentTimeMillis()/1000)
             requests_queue.set(request.get("request_id").toString(),request)
-            return true
+            return AddRequestsQueueResult.REQUESTS_QUEUE_RESULT_OK
         } else {
-            return false
+            return AddRequestsQueueResult.REQUESTS_QUEUE_RESULT_ERROR_DUPLICATE_REQUEST_ID
         }
     }
 
     /**
      * Function gets next request from requests_queue, sends it to the server, if connection established
      * and moves request to pending_responses_queue.
+     *
+     * @return ArrayList copy of JSON strings, sent to server as requests
      */
     fun processRequests(): ArrayList<String> {
         val result = ArrayList<String>()
         if (connected) {
-            val it = requests_queue.iterator()
-            while (it.hasNext()) {
-                val request = it.next() as HashMap<String, Any>
-                val sender = request.get("sender")
-                pending_responses_queue.set(request.get("request_id").toString(),
-                        mapOf("request_id" to request.get("request_id").toString(),
-                                "sender" to sender,
-                                "timestamp" to System.currentTimeMillis()/1000)
-                )
-                request.remove("sender")
-                val json_request = JSONObject()
-                for ((index, value) in request) {
-                    json_request[index] = value
+            val tmp_queue = requests_queue.clone() as HashMap<String,Any>;
+            val it = tmp_queue.iterator()
+            for ((index,row) in it) {
+                try {
+                    val request = row as HashMap<String, Any>
+                    val sender = request.get("sender")
+                    pending_responses_queue.set(request.get("request_id").toString(),
+                            mapOf("request_id" to request.get("request_id").toString(),
+                                    "sender" to sender,
+                                    "request" to request,
+                                    "timestamp" to System.currentTimeMillis() / 1000)
+                    )
+                    request.remove("sender")
+                    val json_request = JSONObject()
+                    for ((index, value) in request) {
+                        json_request[index] = value
+                    }
+                    result.add(toJSONString(json_request))
+                    ws.sendText(toJSONString(json_request))
+                    requests_queue.remove(index)
+                } catch (e:Exception) {
+                    requests_queue.remove(index)
                 }
-                result.add(toJSONString(json_request))
-                ws.sendText(toJSONString(json_request))
             }
         }
         return result
@@ -260,7 +329,7 @@ class MessageCenter : Service() {
             for ((index, value) in q) {
                 val request = value as HashMap<String, Any>
                 if (request.contains("timestamp")) {
-                    val timestamp = request.get("timestamp") as Int
+                    val timestamp = request.get("timestamp") as Long
                     if (System.currentTimeMillis()/1000 - timestamp > REQUESTS_QUEUE_TIMEOUT) {
                         requests_queue.remove(index)
                     }
@@ -280,7 +349,7 @@ class MessageCenter : Service() {
             for ((index, value) in q) {
                 val request = value as HashMap<String, Any>
                 if (request.contains("timestamp")) {
-                    val timestamp = request.get("timestamp") as Int
+                    val timestamp = request.get("timestamp") as Long
                     if (System.currentTimeMillis()/1000 - timestamp > PENDING_RESPONSES_QUEUE_TIMEOUT) {
                         pending_responses_queue.remove(index)
                     }
@@ -288,6 +357,17 @@ class MessageCenter : Service() {
                     pending_responses_queue.remove(index)
                 }
             }
+        }
+    }
+
+    /**
+     * Function removes pending response, specified by provided [request_id].
+     *
+     * @param request_id Request_id which record should be reomoved
+     */
+    fun removePendingResponse(request_id:String) {
+        if (pending_responses_queue.contains(request_id)) {
+            pending_responses_queue.remove(request_id)
         }
     }
 

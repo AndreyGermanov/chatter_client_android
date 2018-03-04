@@ -1,13 +1,27 @@
 package ru.itport.andrey.chatter.actions
 
 import org.json.simple.JSONObject
+import ru.itport.andrey.chatter.core.MessageCenter
+import ru.itport.andrey.chatter.core.MessageCenterResponseReceiver
 import ru.itport.andrey.chatter.store.LoginFormMode
 import ru.itport.andrey.chatter.store.appStore
 import ru.itport.andrey.chatter.utils.isValidEmail
+import java.util.*
+import kotlin.collections.HashMap
 
 /**
  * Created by andrey on 2/27/18.
  */
+
+/**
+ * Base interface, which all enum classes should implement
+ */
+interface SmartEnum {
+    /**
+     * Function which returns text message for specified enum member
+     */
+    fun getMessage():String
+}
 
 /**
  * Class groups all actions, which user can implement on LoginScreen.
@@ -28,22 +42,26 @@ class LoginScreenActions {
     /**
      * User registration error definitions
      */
-    enum class LoginScreenRegisterErrors {
-        RESULT_ERROR_FIELD_IS_EMPTY,
-        RESULT_ERROR_INCORRECT_EMAIL,
-        RESULT_ERROR_EMAIL_EXISTS,
-        RESULT_ERROR_LOGIN_EXISTS,
-        RESULT_ERROR_CONFIRM_PASSWORD_INCORRECT,
-        RESULT_ERROR_ACTIVATION_EMAIL,
-        RESULT_ERROR_UNKNOWN;
-        fun getMessage():String {
+    enum class LoginScreenRegisterErrors(val value:String): SmartEnum {
+        RESULT_OK("RESULT_OK"),
+        RESULT_ERROR_FIELD_IS_EMPTY("RESULT_ERROR_FIELD_IS_EMPTY"),
+        RESULT_ERROR_INCORRECT_EMAIL("RESULT_ERROR_INCORRECT_EMAIL"),
+        RESULT_ERROR_EMAIL_EXISTS("RESULT_ERROR_EMAIL_EXISTS"),
+        RESULT_ERROR_LOGIN_EXISTS("RESULT_ERROR_LOGIN_EXISTS"),
+        RESULT_ERROR_CONFIRM_PASSWORD_INCORRECT("RESULT_ERROR_CONFIRM_PASSWORD_INCORRECT"),
+        RESULT_ERROR_CONNECTION_ERROR("RESULT_ERROR_CONNECTION_ERROR"),
+        RESULT_ERROR_ACTIVATION_EMAIL("RESULT_ERROR_ACTIVATION_EMAIL"),
+        RESULT_ERROR_UNKNOWN("RESULT_ERROR_UNKNOWN");
+        override fun getMessage():String {
             var result = ""
             when(this) {
+                RESULT_OK -> result = "You are registered. Activation email sent. Please, open it and activate your account."
                 RESULT_ERROR_FIELD_IS_EMPTY -> result = "Value of this field is required."
                 RESULT_ERROR_INCORRECT_EMAIL -> result = "Incorrect email format."
                 RESULT_ERROR_EMAIL_EXISTS -> result = "User with provided email already exists."
                 RESULT_ERROR_LOGIN_EXISTS -> result = "User with provided login already exists."
                 RESULT_ERROR_CONFIRM_PASSWORD_INCORRECT -> result = "Passwords must be the same."
+                RESULT_ERROR_CONNECTION_ERROR -> result = "Server connection error."
                 RESULT_ERROR_ACTIVATION_EMAIL -> result = "Failed to send activation email. Please contact support."
                 RESULT_ERROR_UNKNOWN -> result = "Unknown error. Please contact support"
             }
@@ -54,12 +72,12 @@ class LoginScreenActions {
     /**
      * User login error definitions
      */
-    enum class LoginScreenLoginErrors {
-        RESULT_ERROR_FIELD_IS_EMPTY,
-        RESULT_ERROR_NO_USER,
-        RESULT_ERROR_USER_ALREADY_ACTIVATED,
-        RESULT_ERROR_UNKNOWN;
-        fun getMessage(): String {
+    enum class LoginScreenLoginErrors(val value:String):SmartEnum {
+        RESULT_ERROR_FIELD_IS_EMPTY("RESULT_ERROR_FIELD_IS_EMPTY"),
+        RESULT_ERROR_NO_USER("RESULT_ERROR_NO_USER"),
+        RESULT_ERROR_USER_ALREADY_ACTIVATED("RESULT_ERROR_USER_ALREADY_ACTIVATED"),
+        RESULT_ERROR_UNKNOWN("RESULT_ERROR_UNKNOWN");
+        override fun getMessage(): String {
             var result = ""
             when (this) {
                 RESULT_ERROR_FIELD_IS_EMPTY -> result = "Value of this field is required."
@@ -71,7 +89,12 @@ class LoginScreenActions {
         }
     }
 
-    companion object {
+    companion object: MessageCenterResponseReceiver {
+        /**
+         * Link to MessageCenter, to send commands to server
+         */
+        lateinit var messageCenter: MessageCenter
+
         /**
          * Action switches mode of LoginWindow from "Login" to "Register" and
          * from "Register" to "Login", when user presses appropriate button on
@@ -81,7 +104,6 @@ class LoginScreenActions {
             return JSONObject(mapOf(
                     "type" to LoginScreenActions.LoginScreenActionTypes.SWITCH_MODE,
                     "mode" to mode)
-
             )
         }
 
@@ -110,9 +132,8 @@ class LoginScreenActions {
          *
          */
         fun register(params:JSONObject? = null) {
-            var form = params!!
+            var form = JSONObject()
             if (params == null) {
-                form = JSONObject()
                 val state = appStore.state["LoginForm"] as JSONObject
                 if (state["login"]!=null) {
                     form["login"] = state["login"].toString()
@@ -126,9 +147,12 @@ class LoginScreenActions {
                 if (state["email"]!=null) {
                     form["email"] = state["email"].toString()
                 }
+            } else {
+                form = params
             }
 
             val errors = JSONObject()
+            appStore.dispatch(changeProperty("errors",errors))
             if (form["login"]==null || form["login"].toString().isEmpty()) {
                 errors["login"] = LoginScreenActions.LoginScreenRegisterErrors.RESULT_ERROR_FIELD_IS_EMPTY
             }
@@ -141,14 +165,66 @@ class LoginScreenActions {
                 errors["email"] = LoginScreenActions.LoginScreenRegisterErrors.RESULT_ERROR_FIELD_IS_EMPTY
             } else if (!isValidEmail(form["email"].toString())) {
                 errors["email"] = LoginScreenActions.LoginScreenRegisterErrors.RESULT_ERROR_INCORRECT_EMAIL
+            } else if (!messageCenter.connected) {
+                errors["general"]  = LoginScreenActions.LoginScreenRegisterErrors.RESULT_ERROR_CONNECTION_ERROR
             }
             if (errors.count()>0) {
                 appStore.dispatch(changeProperty("errors",errors))
             } else {
-                appStore.dispatch(changeProperty("show_spinner",true))
+                val state = appStore.state["LoginForm"] as JSONObject
+                val already_running = state["show_progress_indicator"] as Boolean
+                if (!already_running) {
+                    appStore.dispatch(changeProperty("show_progress_indicator", true))
+                    val request = HashMap<String, Any>()
+                    val request_id = UUID.randomUUID().toString()
+                    request.set("request_id", request_id)
+                    request.set("action", "register_user")
+                    request.set("sender", this)
+                    request.set("login", form["login"].toString())
+                    request.set("email", form["email"].toString())
+                    request.set("password", form["password"].toString())
+                    messageCenter.addRequest(request)
+                }
+            }
+        }
 
+        /**
+         * This function receives responses to requests, sent to message center
+         */
+        override fun handleResponse(request_id: String, response: Any) {
+            if (response is JSONObject) {
+                val pendingResponses = this.messageCenter.getPendingResponsesQueue()
+                if (pendingResponses.containsKey(request_id)) {
+                    val pendingResponse = pendingResponses.get(request_id) as HashMap<String, Any>
+                    if (pendingResponse.containsKey("request")) {
+                        val request = pendingResponse.get("request") as HashMap<String, Any>
+                        if (request.containsKey("action")) {
+                            val action = request.get("action") as String
+                            when (action) {
+                                "register_user" -> {
+                                    if ("ok" == response["status"] as String) {
+                                        appStore.dispatch(LoginScreenActions.changeProperty("show_progress_indicator",false))
+                                        appStore.dispatch(LoginScreenActions.changeProperty("popup_message",LoginScreenRegisterErrors.RESULT_OK.getMessage()))
+                                        appStore.dispatch(LoginScreenActions.changeProperty("mode", LoginFormMode.LOGIN))
+                                    } else {
+                                        val status_code = response["status_code"] as String
+                                        appStore.dispatch(LoginScreenActions.changeProperty("show_progress_indicator",false))
+                                        val errors = JSONObject()
+                                        try {
+                                            errors["general"] = LoginScreenRegisterErrors.valueOf(response["status_code"].toString())
+                                        } catch (e:Exception) {
+                                            errors["general"] = LoginScreenRegisterErrors.RESULT_ERROR_UNKNOWN
+                                        }
+                                        appStore.dispatch(LoginScreenActions.changeProperty("errors",errors))
+                                        appStore.dispatch(LoginScreenActions.changeProperty("mode", LoginFormMode.REGISTER))
+                                    }
+                                }
+                            }
+                            messageCenter.removePendingResponse(request_id)
+                        }
+                    }
+                }
             }
         }
     }
-
 }

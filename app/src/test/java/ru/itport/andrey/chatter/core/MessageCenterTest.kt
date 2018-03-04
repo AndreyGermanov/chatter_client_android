@@ -36,44 +36,45 @@ class MessageCenterTest {
     @Test
     fun addRequest() {
         var result = msgCenter.addRequest(HashMap())
-        assertFalse("Should not add empty requests",result)
+        assertEquals("Should not add empty requests",MessageCenter.AddRequestsQueueResult.REQUESTS_QUEUE_RESULT_ERROR_NO_REQUEST_ID,result)
         result = msgCenter.addRequest( hashMapOf(
                 "request_id" to ""
         ))
-        assertFalse("Should not add requests with empty request_id",result)
+        assertEquals("Should not add requests with empty request_id",MessageCenter.AddRequestsQueueResult.REQUESTS_QUEUE_RESULT_ERROR_NO_REQUEST_ID,result)
         result = msgCenter.addRequest(hashMapOf(
                 "request_id" to "123"
         ))
-        assertFalse("Should not add requests without action",result)
+        assertEquals("Should not add requests without action",MessageCenter.AddRequestsQueueResult.REQUESTS_QUEUE_RESULT_ERROR_NO_ACTION,result)
         result = msgCenter.addRequest(hashMapOf(
                 "request_id" to "123",
                 "action" to ""
         ))
-        assertFalse("Should not add requests with empty action",result)
+        assertEquals("Should not add requests with empty action",MessageCenter.AddRequestsQueueResult.REQUESTS_QUEUE_RESULT_ERROR_NO_ACTION,result)
         result = msgCenter.addRequest(hashMapOf(
                 "request_id" to "123",
                 "action" to "register_user"
         ))
-        assertFalse("Should not add requests without sender",result)
+        assertEquals("Should not add requests without sender",MessageCenter.AddRequestsQueueResult.REQUESTS_QUEUE_RESULT_ERROR_NO_SENDER,result)
         result = msgCenter.addRequest(hashMapOf(
                 "request_id" to "123",
                 "action" to "register_user",
                 "sender" to ""
         ))
-        assertFalse("Should not add requests with empty sender",result)
+        assertEquals("Should not add requests with empty sender",MessageCenter.AddRequestsQueueResult.REQUESTS_QUEUE_RESULT_ERROR_INCORRECT_SENDER,result)
         result = msgCenter.addRequest(hashMapOf(
                 "request_id" to "123",
                 "action" to "register_user",
                 "sender" to ArrayList<String>()
         ))
-        assertFalse("Should not add requests with sender which does not implement MessageCenterResponseReceiver interface",result)
+        assertEquals("Should not add requests with sender which does not implement MessageCenterResponseReceiver interface",
+                MessageCenter.AddRequestsQueueResult.REQUESTS_QUEUE_RESULT_ERROR_INCORRECT_SENDER,result)
         var responseHandler = ResponseHandler(this)
         result = msgCenter.addRequest(hashMapOf(
                 "request_id" to "123",
                 "action" to "register_user",
                 "sender" to responseHandler
         ))
-        assertTrue("Should return true if request conforms to standard",result)
+        assertEquals("Should return true if request conforms to standard",MessageCenter.AddRequestsQueueResult.REQUESTS_QUEUE_RESULT_OK,result)
         assertEquals("Should add request to queue",1,msgCenter.getRequestsQueueLength())
         val queue = msgCenter.getRequestsQueue()
         assertNotNull("Requests queue should contain item, identified by request_id",queue["123"])

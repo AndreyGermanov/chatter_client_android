@@ -28,7 +28,8 @@ var appState = JSONObject(mapOf(
                 "email" to "",
                 "password" to "",
                 "confirm_password" to "",
-                "show_spinner" to false,
+                "show_progress_indicator" to false,
+                "popup_message" to "",
                 "errors" to JSONObject()
         )
     )

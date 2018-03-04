@@ -51,7 +51,7 @@ class LoginScreen : Activity() {
     lateinit var messageCenter: MessageCenter
 
     /**
-     * Used to check if this activity connected to MesasgeCenter
+     * Used to check if this activity connected to MessageCenter
      */
     var messageCenterConnected = false
 
@@ -63,6 +63,7 @@ class LoginScreen : Activity() {
             if (!messageCenterConnected) {
                 val binder = service as MessageCenter.LocalBinder
                 messageCenter = binder.getService()
+                LoginScreenActions.messageCenter = messageCenter
                 messageCenterConnected = true
             }
         }
