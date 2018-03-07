@@ -4,12 +4,11 @@ import android.app.Service
 import android.content.Intent
 import android.os.Binder
 import android.os.IBinder
-import com.neovisionaries.ws.client.WebSocket
-import com.neovisionaries.ws.client.WebSocketAdapter
-import com.neovisionaries.ws.client.WebSocketFactory
-import com.neovisionaries.ws.client.WebSocketFrame
+import com.neovisionaries.ws.client.*
+import kotlinx.coroutines.experimental.launch
 import org.json.simple.JSONObject
 import org.json.simple.parser.JSONParser
+import ru.itport.andrey.chatter.actions.SmartEnum
 import ru.itport.andrey.chatter.utils.toJSONString
 import java.util.*
 import java.util.logging.Level
@@ -47,11 +46,19 @@ class MessageCenter : Service() {
         }
 
         /**
+         * Runs on connection errors
+         */
+        override fun onError(websocket: WebSocket?, cause: WebSocketException?) {
+            super.onError(websocket, cause)
+        }
+
+        /**
          * Runs on disconnect from server
          */
         override fun onDisconnected(websocket: WebSocket?, serverCloseFrame: WebSocketFrame?, clientCloseFrame: WebSocketFrame?, closedByServer: Boolean) {
             super.onDisconnected(websocket, serverCloseFrame, clientCloseFrame, closedByServer)
             this@MessageCenter.connected = false
+            this@MessageCenter.ws.connect()
         }
 
         /**
@@ -100,7 +107,7 @@ class MessageCenter : Service() {
      * WebSocket server credentials
      */
     val SERVER_HOST = "192.168.0.184"
-    val SERVER_PORT = 8081
+    val SERVER_PORT = 8080
     val SERVER_ENDPOINT = "/websocket"
 
 
@@ -134,15 +141,15 @@ class MessageCenter : Service() {
     /**
      * Result codes for addRequest operation
      */
-    enum class AddRequestsQueueResult {
-        REQUESTS_QUEUE_RESULT_OK,
-        REQUESTS_QUEUE_RESULT_ERROR_EMPTY_REQUEST,
-        REQUESTS_QUEUE_RESULT_ERROR_NO_REQUEST_ID,
-        REQUESTS_QUEUE_RESULT_ERROR_DUPLICATE_REQUEST_ID,
-        REQUESTS_QUEUE_RESULT_ERROR_NO_ACTION,
-        REQUESTS_QUEUE_RESULT_ERROR_NO_SENDER,
-        REQUESTS_QUEUE_RESULT_ERROR_INCORRECT_SENDER;
-        fun getMessage():String {
+    enum class AddRequestsQueueResult(val value:String): SmartEnum {
+        REQUESTS_QUEUE_RESULT_OK("REQUESTS_QUEUE_RESULT_OK"),
+        REQUESTS_QUEUE_RESULT_ERROR_EMPTY_REQUEST("REQUESTS_QUEUE_RESULT_ERROR_EMPTY_REQUEST"),
+        REQUESTS_QUEUE_RESULT_ERROR_NO_REQUEST_ID("REQUESTS_QUEUE_RESULT_ERROR_NO_REQUEST_ID"),
+        REQUESTS_QUEUE_RESULT_ERROR_DUPLICATE_REQUEST_ID("REQUESTS_QUEUE_RESULT_ERROR_DUPLICATE_REQUEST_ID"),
+        REQUESTS_QUEUE_RESULT_ERROR_NO_ACTION("REQUESTS_QUEUE_RESULT_ERROR_NO_ACTION"),
+        REQUESTS_QUEUE_RESULT_ERROR_NO_SENDER("REQUESTS_QUEUE_RESULT_ERROR_NO_SENDER"),
+        REQUESTS_QUEUE_RESULT_ERROR_INCORRECT_SENDER("REQUESTS_QUEUE_RESULT_ERROR_INCORRECT_SENDER");
+        override fun getMessage():String {
             var result = ""
             when (this) {
                 REQUESTS_QUEUE_RESULT_OK -> result = ""
@@ -181,7 +188,9 @@ class MessageCenter : Service() {
      */
     inner class Cronjob: TimerTask() {
         override fun run() {
-            this@MessageCenter.runCronjob()
+            launch {
+                this@MessageCenter.runCronjob()
+            }
         }
     }
 
@@ -205,13 +214,15 @@ class MessageCenter : Service() {
      */
     override fun onCreate() {
         super.onCreate()
-        try {
-            ws = WebSocketFactory().createSocket("ws://" + SERVER_HOST + ":" + SERVER_PORT + SERVER_ENDPOINT)
-            ws.connect()
-        } catch (e:Exception) {
-            connected = false
+        launch {
+            try {
+                ws = WebSocketFactory().createSocket("ws://" + SERVER_HOST + ":" + SERVER_PORT + SERVER_ENDPOINT)
+                ws.connect()
+            } catch (e: Exception) {
+                connected = false
+            }
+            ws.addListener(messageListener)
         }
-        ws.addListener(messageListener)
         timer.schedule(Cronjob(),0,1000)
     }
 
@@ -282,7 +293,9 @@ class MessageCenter : Service() {
                         json_request[index] = value
                     }
                     result.add(toJSONString(json_request))
-                    ws.sendText(toJSONString(json_request))
+                    launch {
+                        ws.sendText(toJSONString(json_request))
+                    }
                     requests_queue.remove(index)
                 } catch (e:Exception) {
                     requests_queue.remove(index)

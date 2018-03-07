@@ -8,17 +8,23 @@ import android.content.ServiceConnection
 import android.graphics.Color
 import android.os.Bundle
 import android.os.IBinder
+import android.support.annotation.UiThread
 import android.support.v4.content.LocalBroadcastManager
 import android.text.InputType
+import android.text.method.PasswordTransformationMethod
+import android.text.method.TransformationMethod
 import android.view.Window
 import trikita.anvil.DSL.*
 import trikita.anvil.BaseDSL.WRAP
 import android.widget.LinearLayout
+import kotlinx.android.synthetic.main.fragment_login_screen.*
 import org.json.simple.JSONObject
 import ru.itport.andrey.chatter.actions.LoginScreenActions
 import ru.itport.andrey.chatter.core.MessageCenter
 import ru.itport.andrey.chatter.store.LoginFormMode
 import ru.itport.andrey.chatter.store.appStore
+import ru.itport.andrey.chatter.store.oldAppState
+import ru.itport.andrey.chatter.utils.showAlertDialog
 import trikita.anvil.Anvil
 
 import trikita.anvil.BaseDSL
@@ -74,6 +80,26 @@ class LoginScreen : Activity() {
     }
 
     /**
+     * Function updates user interface on application state update
+     */
+    inner class UpdateUI: Runnable {
+        override fun run() {
+            val currentState = appStore.getState() as JSONObject
+            state = currentState["LoginForm"] as JSONObject
+            if (state["errors"] != null) {
+                val errors = state["errors"] as JSONObject
+                if (errors["general"] != null) {
+                    val generalError = errors["general"] as LoginScreenActions.LoginScreenRegisterErrors
+                    showAlertDialog("Alert", generalError.getMessage(), this@LoginScreen)
+                    errors["general"] = null
+                    appStore.dispatch(LoginScreenActions.changeProperty("errors", errors))
+                }
+            }
+            Anvil.render()
+        }
+    }
+
+    /**
      * Function runs when activity starts or restarts
      * It draws view of current activity and subscribes to application store,
      * which provides notifications about any changes in application state,
@@ -84,9 +110,7 @@ class LoginScreen : Activity() {
         this.requestWindowFeature(Window.FEATURE_NO_TITLE);
         setContentView(drawView())
         appStore.subscribe {
-            val currentState = appStore.getState() as JSONObject
-            state = currentState["LoginForm"] as JSONObject
-            Anvil.render()
+            this.runOnUiThread(UpdateUI())
         }
     }
 
@@ -198,8 +222,14 @@ class LoginScreen : Activity() {
             size(MATCH,MATCH)
             visibility(state["mode"] as LoginFormMode == LoginFormMode.REGISTER)
             orientation(LinearLayout.VERTICAL)
+            val errors = state["errors"] as JSONObject
             tableLayout {
                 tableRow {
+                    if (state["show_progress_indicator"] as Boolean) {
+                        progressBar {
+                            indeterminate(true)
+                        }
+                    }
                     orientation(LinearLayout.HORIZONTAL)
                     textView {
                         text("Email")
@@ -207,6 +237,16 @@ class LoginScreen : Activity() {
                     editText {
                         text(state["email"].toString())
                         onTextChanged { text -> appStore.dispatch(LoginScreenActions.changeProperty("email",text))}
+                    }
+                }
+                if (errors["email"]!=null) {
+                    val msg = (errors["email"] as LoginScreenActions.LoginScreenRegisterErrors).getMessage()
+                    tableRow {
+                        orientation(LinearLayout.HORIZONTAL)
+                        textView {
+                            text(msg)
+                            textColor(Color.RED)
+                        }
                     }
                 }
                 tableRow {
@@ -219,6 +259,16 @@ class LoginScreen : Activity() {
                         onTextChanged { text -> appStore.dispatch(LoginScreenActions.changeProperty("login",text))}
                     }
                 }
+                if (errors["login"]!=null) {
+                    val msg = (errors["login"] as LoginScreenActions.LoginScreenRegisterErrors).getMessage()
+                    tableRow {
+                        orientation(LinearLayout.HORIZONTAL)
+                        textView {
+                            text(msg)
+                            textColor(Color.RED)
+                        }
+                    }
+                }
                 tableRow {
                     orientation(LinearLayout.HORIZONTAL)
                     textView {
@@ -226,8 +276,18 @@ class LoginScreen : Activity() {
                     }
                     editText {
                         text(state["password"].toString())
-                        inputType(InputType.TYPE_NUMBER_VARIATION_PASSWORD)
+                        inputType(InputType.TYPE_TEXT_VARIATION_PASSWORD)
                         onTextChanged { text -> appStore.dispatch(LoginScreenActions.changeProperty("password",text))}
+                    }
+                }
+                if (errors["password"]!=null) {
+                    val msg = (errors["password"] as LoginScreenActions.LoginScreenRegisterErrors).getMessage()
+                    tableRow {
+                        orientation(LinearLayout.HORIZONTAL)
+                        textView {
+                            text(msg)
+                            textColor(Color.RED)
+                        }
                     }
                 }
                 tableRow {
@@ -237,7 +297,7 @@ class LoginScreen : Activity() {
                     }
                     editText {
                         text(state["confirm_password"].toString())
-                        inputType(InputType.TYPE_NUMBER_VARIATION_PASSWORD)
+                        inputType(InputType.TYPE_TEXT_VARIATION_PASSWORD)
                         onTextChanged { text -> appStore.dispatch(LoginScreenActions.changeProperty("confirm_password",text))}
                     }
                 }
@@ -248,7 +308,7 @@ class LoginScreen : Activity() {
                     size(MATCH, WRAP)
                     text("REGISTER")
                     onClick { v ->
-
+                        LoginScreenActions.register()
                     }
                 }
             }

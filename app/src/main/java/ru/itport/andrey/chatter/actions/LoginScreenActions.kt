@@ -54,7 +54,7 @@ class LoginScreenActions {
         RESULT_ERROR_UNKNOWN("RESULT_ERROR_UNKNOWN");
         override fun getMessage():String {
             var result = ""
-            when(this) {
+            when (this) {
                 RESULT_OK -> result = "You are registered. Activation email sent. Please, open it and activate your account."
                 RESULT_ERROR_FIELD_IS_EMPTY -> result = "Value of this field is required."
                 RESULT_ERROR_INCORRECT_EMAIL -> result = "Incorrect email format."
@@ -172,8 +172,8 @@ class LoginScreenActions {
                 appStore.dispatch(changeProperty("errors",errors))
             } else {
                 val state = appStore.state["LoginForm"] as JSONObject
-                val already_running = state["show_progress_indicator"] as Boolean
-                if (!already_running) {
+                val alreadyRunning = state["show_progress_indicator"] as Boolean
+                if (!alreadyRunning) {
                     appStore.dispatch(changeProperty("show_progress_indicator", true))
                     val request = HashMap<String, Any>()
                     val request_id = UUID.randomUUID().toString()
@@ -207,7 +207,6 @@ class LoginScreenActions {
                                         appStore.dispatch(LoginScreenActions.changeProperty("popup_message",LoginScreenRegisterErrors.RESULT_OK.getMessage()))
                                         appStore.dispatch(LoginScreenActions.changeProperty("mode", LoginFormMode.LOGIN))
                                     } else {
-                                        val status_code = response["status_code"] as String
                                         appStore.dispatch(LoginScreenActions.changeProperty("show_progress_indicator",false))
                                         val errors = JSONObject()
                                         try {

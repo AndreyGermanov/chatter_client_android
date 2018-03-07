@@ -4,6 +4,7 @@
 package ru.itport.andrey.chatter.reducers
 import org.json.simple.JSONObject
 import redux.api.Reducer
+import ru.itport.andrey.chatter.store.oldAppState
 
 /**
  * Core reducer, which applies changes dispatched to store by actions of all detail

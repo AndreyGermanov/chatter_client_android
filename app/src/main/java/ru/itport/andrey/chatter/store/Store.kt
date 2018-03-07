@@ -35,6 +35,8 @@ var appState = JSONObject(mapOf(
     )
 ))
 
+var oldAppState = appState.clone()
+
 /**
  * Redux store for Application state
  */
