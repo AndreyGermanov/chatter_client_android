@@ -1,30 +1,23 @@
-package ru.itport.andrey.chatter
+/**
+* Created by Andrey Germanov on 3/10/18.
+*/
+package ru.itport.andrey.chatter.views
 
-import android.app.Activity
-import android.content.ComponentName
-import android.content.Context
 import android.content.Intent
-import android.content.ServiceConnection
 import android.graphics.Color
-import android.os.Bundle
-import android.os.IBinder
-import android.support.annotation.UiThread
-import android.support.v4.content.LocalBroadcastManager
 import android.text.InputType
-import android.text.method.PasswordTransformationMethod
-import android.text.method.TransformationMethod
 import android.view.Window
 import trikita.anvil.DSL.*
 import trikita.anvil.BaseDSL.WRAP
 import android.widget.LinearLayout
-import kotlinx.android.synthetic.main.fragment_login_screen.*
 import org.json.simple.JSONObject
 import ru.itport.andrey.chatter.actions.LoginScreenActions
-import ru.itport.andrey.chatter.core.MessageCenter
+import ru.itport.andrey.chatter.actions.SmartEnum
+import ru.itport.andrey.chatter.store.AppScreens
 import ru.itport.andrey.chatter.store.LoginFormMode
 import ru.itport.andrey.chatter.store.appStore
-import ru.itport.andrey.chatter.store.oldAppState
 import ru.itport.andrey.chatter.utils.showAlertDialog
+import ru.itport.andrey.chatter.utils.showProgressBar
 import trikita.anvil.Anvil
 
 import trikita.anvil.BaseDSL
@@ -34,49 +27,15 @@ import trikita.anvil.RenderableView
  * Activity which displays first screen of application with Login/Register
  * form
  *
- * @property state The subarray of values of Activity state items from global
- * Redux Application state
  */
-class LoginScreen : Activity() {
+class LoginScreen : BaseScreen() {
 
     /**
-     * The subarray of values of Activity state items from global
-     * Redux Application state
+     * Constructor of object
      */
-    var state:JSONObject
-
     init {
-        val currentState = appStore.getState() as JSONObject
-        state = currentState["LoginForm"] as JSONObject
-    }
-
-    /**
-     * Link to MessageCenter service, used to exchange messages
-     * with server
-     */
-    lateinit var messageCenter: MessageCenter
-
-    /**
-     * Used to check if this activity connected to MessageCenter
-     */
-    var messageCenterConnected = false
-
-    /**
-     * Object which handles connection and disconnection from MessageCenter service
-     */
-    val messageCenterConnection = object:ServiceConnection {
-        override fun onServiceConnected(className:ComponentName,service: IBinder) {
-            if (!messageCenterConnected) {
-                val binder = service as MessageCenter.LocalBinder
-                messageCenter = binder.getService()
-                LoginScreenActions.messageCenter = messageCenter
-                messageCenterConnected = true
-            }
-        }
-
-        override fun onServiceDisconnected(className: ComponentName) {
-            messageCenterConnected = false
-        }
+        globalState = appStore.getState() as JSONObject
+        state = globalState["LoginForm"] as JSONObject
     }
 
     /**
@@ -84,52 +43,36 @@ class LoginScreen : Activity() {
      */
     inner class UpdateUI: Runnable {
         override fun run() {
-            val currentState = appStore.getState() as JSONObject
-            state = currentState["LoginForm"] as JSONObject
+            globalState = appStore.getState() as JSONObject
+            state = globalState["LoginForm"] as JSONObject
             if (state["errors"] != null) {
                 val errors = state["errors"] as JSONObject
                 if (errors["general"] != null) {
-                    val generalError = errors["general"] as LoginScreenActions.LoginScreenRegisterErrors
-                    showAlertDialog("Alert", generalError.getMessage(), this@LoginScreen)
+                    if (errors["general"] is SmartEnum) {
+                        val generalError = errors["general"] as SmartEnum
+                        showAlertDialog("Alert", generalError.getMessage(), this@LoginScreen)
+                    }
                     errors["general"] = null
                     appStore.dispatch(LoginScreenActions.changeProperty("errors", errors))
+                }
+                if (state["show_progress_indicator"] as Boolean && progressBarDialog==null) {
+                    progressBarDialog = showProgressBar(this@LoginScreen)
+                    progressBarDialog!!.show()
+                } else if (!(state["show_progress_indicator"] as Boolean) && progressBarDialog != null) {
+                    progressBarDialog!!.cancel()
+                    progressBarDialog = null
+                }
+                if (globalState["current_activity"] as AppScreens != AppScreens.LOGIN_FORM) {
+                    var intent = Intent()
+                    when (globalState["current_activity"] as AppScreens) {
+                        AppScreens.USER_PROFILE -> intent = Intent(this@LoginScreen,UserProfileScreen::class.java)
+                        AppScreens.CHAT -> intent = Intent(this@LoginScreen,ChatScreen::class.java)
+                    }
+                    startActivity(intent)
                 }
             }
             Anvil.render()
         }
-    }
-
-    /**
-     * Function runs when activity starts or restarts
-     * It draws view of current activity and subscribes to application store,
-     * which provides notifications about any changes in application state,
-     * which requires to update current view
-     */
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        this.requestWindowFeature(Window.FEATURE_NO_TITLE);
-        setContentView(drawView())
-        appStore.subscribe {
-            this.runOnUiThread(UpdateUI())
-        }
-    }
-
-    /**
-     * Function which runs every time when this screen becomes visible to user
-     */
-    override fun onStart() {
-        super.onStart()
-        val intent = Intent(this,MessageCenter::class.java)
-        bindService(intent,messageCenterConnection, Context.BIND_AUTO_CREATE)
-    }
-
-    /**
-     * Function runs every time when user moves from this screen to other screen
-     */
-    override fun onStop() {
-        super.onStop()
-        unbindService(messageCenterConnection)
-        messageCenterConnected = false
     }
 
     /**
@@ -176,6 +119,7 @@ class LoginScreen : Activity() {
     fun drawLoginForm() {
         linearLayout {
             orientation(LinearLayout.VERTICAL)
+            val errors = state["errors"] as JSONObject
             visibility(state["mode"] as LoginFormMode == LoginFormMode.LOGIN)
             tableLayout {
                 size(MATCH,MATCH)
@@ -189,6 +133,16 @@ class LoginScreen : Activity() {
                         onTextChanged { text -> appStore.dispatch(LoginScreenActions.changeProperty("login",text))}
                     }
                 }
+                if (errors["login"]!=null && errors["login"] is LoginScreenActions.LoginScreenLoginErrors) {
+                    val msg = (errors["login"] as LoginScreenActions.LoginScreenLoginErrors).getMessage()
+                    tableRow {
+                        orientation(LinearLayout.HORIZONTAL)
+                        textView {
+                            text(msg)
+                            textColor(Color.RED)
+                        }
+                    }
+                }
                 tableRow {
                     orientation(LinearLayout.HORIZONTAL)
                     textView {
@@ -200,6 +154,18 @@ class LoginScreen : Activity() {
                         onTextChanged { text -> appStore.dispatch(LoginScreenActions.changeProperty("password",text))}
                     }
                 }
+                if (errors["password"]!=null && errors["password"] is LoginScreenActions.LoginScreenLoginErrors) {
+                    val msg = (errors["password"] as LoginScreenActions.LoginScreenLoginErrors).getMessage()
+                    println(msg)
+                    println("printed")
+                    tableRow {
+                        orientation(LinearLayout.HORIZONTAL)
+                        textView {
+                            text(msg)
+                            textColor(Color.RED)
+                        }
+                    }
+                }
             }
             tableLayout {
                 size(MATCH,WRAP)
@@ -207,7 +173,7 @@ class LoginScreen : Activity() {
                     size(MATCH, WRAP)
                     text("LOGIN")
                     onClick { v ->
-
+                        LoginScreenActions.login()
                     }
                 }
             }
@@ -225,11 +191,6 @@ class LoginScreen : Activity() {
             val errors = state["errors"] as JSONObject
             tableLayout {
                 tableRow {
-                    if (state["show_progress_indicator"] as Boolean) {
-                        progressBar {
-                            indeterminate(true)
-                        }
-                    }
                     orientation(LinearLayout.HORIZONTAL)
                     textView {
                         text("Email")
@@ -239,7 +200,7 @@ class LoginScreen : Activity() {
                         onTextChanged { text -> appStore.dispatch(LoginScreenActions.changeProperty("email",text))}
                     }
                 }
-                if (errors["email"]!=null) {
+                if (errors["email"]!=null && errors["email"] is LoginScreenActions.LoginScreenRegisterErrors) {
                     val msg = (errors["email"] as LoginScreenActions.LoginScreenRegisterErrors).getMessage()
                     tableRow {
                         orientation(LinearLayout.HORIZONTAL)
@@ -259,7 +220,7 @@ class LoginScreen : Activity() {
                         onTextChanged { text -> appStore.dispatch(LoginScreenActions.changeProperty("login",text))}
                     }
                 }
-                if (errors["login"]!=null) {
+                if (errors["login"]!=null && errors["login"] is LoginScreenActions.LoginScreenRegisterErrors) {
                     val msg = (errors["login"] as LoginScreenActions.LoginScreenRegisterErrors).getMessage()
                     tableRow {
                         orientation(LinearLayout.HORIZONTAL)
@@ -280,7 +241,7 @@ class LoginScreen : Activity() {
                         onTextChanged { text -> appStore.dispatch(LoginScreenActions.changeProperty("password",text))}
                     }
                 }
-                if (errors["password"]!=null) {
+                if (errors["password"]!=null && errors["password"] is LoginScreenActions.LoginScreenRegisterErrors) {
                     val msg = (errors["password"] as LoginScreenActions.LoginScreenRegisterErrors).getMessage()
                     tableRow {
                         orientation(LinearLayout.HORIZONTAL)
@@ -320,7 +281,11 @@ class LoginScreen : Activity() {
      * It provides resulted view object to setContentView function
      * @return Anvil RenderableView object
      */
-    fun drawView() : RenderableView {
+    override fun drawView() : RenderableView {
+        this.requestWindowFeature(Window.FEATURE_NO_TITLE)
+        appStore.subscribe {
+            this.runOnUiThread(UpdateUI())
+        }
         return object: RenderableView(this) {
             override fun view() {
                 linearLayout {

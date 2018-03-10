@@ -17,22 +17,56 @@ enum class LoginFormMode {
 }
 
 /**
+ * List of screens, on which application can be
+ */
+enum class AppScreens {
+    LOGIN_FORM,
+    USER_PROFILE,
+    CHAT,
+    SYSTEM_SETTINGS
+}
+
+/**
  * Structure which represents whole state of application, used by Redux to maintain
  * consistent UI
  */
 var appState = JSONObject(mapOf(
-        "current_activity" to "LoginForm",
-        "LoginForm" to JSONObject(mapOf(
-                "mode" to LoginFormMode.LOGIN,
-                "login" to "",
-                "email" to "",
-                "password" to "",
-                "confirm_password" to "",
-                "show_progress_indicator" to false,
-                "popup_message" to "",
-                "errors" to JSONObject()
-        )
-    )
+    "current_activity" to AppScreens.LOGIN_FORM,
+    "User" to JSONObject(mapOf(
+            "user_id" to "",
+            "session_id" to "",
+            "isLogin" to false,
+            "login" to "",
+            "email" to "",
+            "fisrtName" to "",
+            "lastName" to "",
+            "gender" to "",
+            "birthDte" to 0,
+            "default_room" to "",
+            "profileImage" to null
+    )),
+    "LoginForm" to JSONObject(mapOf(
+            "mode" to LoginFormMode.LOGIN,
+            "login" to "",
+            "email" to "",
+            "password" to "",
+            "confirm_password" to "",
+            "show_progress_indicator" to false,
+            "popup_message" to "",
+            "errors" to JSONObject()
+    )),"UserProfile" to JSONObject(mapOf(
+            "login" to "",
+            "email" to "",
+            "password" to "",
+            "confirm_password" to "",
+            "firstName" to "",
+            "lastName" to "",
+            "gender" to "",
+            "birthDate" to 0,
+            "default_room" to "",
+            "profileImage" to null,
+            "rooms" to JSONObject()
+    ))
 ))
 
 var oldAppState = appState.clone()

@@ -65,3 +65,6 @@ dependencies {
     testCompile group: 'com.googlecode.json-simple', name: 'json-simple', version: '1.1.1'
     compile group: 'com.googlecode.json-simple', name: 'json-simple', version: '1.1.1'
 }
+dependencies {
+    implementation 'com.android.support.constraint:constraint-layout:+'
+}

@@ -13,6 +13,7 @@ import ru.itport.andrey.chatter.utils.toJSONString
 import java.util.*
 import java.util.logging.Level
 import java.util.logging.Logger
+import java.util.zip.Adler32
 import kotlin.collections.HashMap
 
 /**
@@ -63,10 +64,13 @@ class MessageCenter : Service() {
 
         /**
          * Runs when receive text message from server
+         *
+         * @param websocket Remote websocket from which message came
+         * @param text Text body of received message
          */
         override fun onTextMessage(websocket: WebSocket?, text: String?) {
             super.onTextMessage(websocket, text)
-            val logger = Logger.getLogger("websocket")
+            val logger = Logger.getLogger("websocket_text")
             val parser = JSONParser()
             var response = JSONObject()
             try {
@@ -75,7 +79,9 @@ class MessageCenter : Service() {
                 logger.log(Level.SEVERE,"Error parsing response from server '"+e.message+"'")
             }
             if (!response.isEmpty()) {
-                if (!response.contains("request_id")) {
+                if (!response.containsKey("status")) {
+                    logger.log(Level.SEVERE, "Error parsing response from server. Does not contain status")
+                } else if (!response.contains("request_id")) {
                     logger.log(Level.SEVERE, "Error parsing response from server. Does not contain request_id")
                 } else if (!this@MessageCenter.pending_responses_queue.contains(response.get("request_id").toString())) {
                     logger.log(Level.SEVERE, "Error parsing response from server. Could not find request_id of this response in Pending responses queue")
@@ -95,9 +101,37 @@ class MessageCenter : Service() {
 
         /**
          * Runs when receive binary data from server
+         *
+         * @param websocket Remote websocket from which message came
+         * @param text binary body of received message
          */
         override fun onBinaryMessage(websocket: WebSocket?, binary: ByteArray?) {
             super.onBinaryMessage(websocket, binary)
+            val logger = Logger.getLogger("websocket_binary")
+            if (binary != null) {
+                val checksumEngine = Adler32()
+                checksumEngine.update(binary)
+                if (pending_files_queue.containsKey(checksumEngine.value)) {
+                    val pending_file = pending_files_queue[checksumEngine.value] as HashMap<String,Any>
+                    if (pending_file.containsKey("request")) {
+                        val request = pending_file["request"] as HashMap<String,Any>
+                        if (request.containsKey("sender")) {
+                            if (request["sender"] is MessageCenterResponseReceiver) {
+                                val sender = request["sender"] as MessageCenterResponseReceiver
+                                sender.handleResponse(checksumEngine.value.toString(),binary)
+                            } else {
+                                logger.log(Level.SEVERE,"Pending file request sender object has incorrect type")
+                            }
+                        } else {
+                            logger.log(Level.SEVERE,"Pending file request does not contain link to sender object")
+                        }
+                    } else {
+                        logger.log(Level.SEVERE,"Pending file queue record does not contain 'request' item")
+                    }
+                } else {
+                    logger.log(Level.SEVERE,"Checksum of received file not found in pending files queue")
+                }
+            }
         }
     }
 
@@ -120,6 +154,11 @@ class MessageCenter : Service() {
      * Determines if connection to WebSocket server is established
      */
     var connected = false
+
+    /**
+     * Determines, if MessageCenter started only for testing, without real connection to the server
+     */
+    var testingMode = false
 
     /**
      * Queue of requests, which senders sent to MessageCenter. Key is unique id of request
@@ -178,6 +217,39 @@ class MessageCenter : Service() {
     private val PENDING_RESPONSES_QUEUE_TIMEOUT = 60
 
     /**
+     * Queue of files, which should be transferred from server e.g. client already received
+     * checksum of file, but file is still going. Each record keyed by checksum and has following
+     * Hashmap<String,Any> as a values: request - copy of request, which is waiting, timestamp -
+     * timestamp which defines when this record placed to queue
+     */
+    private val pending_files_queue = HashMap<Long,Any>()
+
+    /**
+     * Timeout of pending file queue. If timeout exceeded, row will be removed from queue by
+     * background task
+     */
+    var PENDING_FILES_QUEUE_TIMEOUT = 120
+
+    /**
+     * Result codes for addPendingFile operation
+     */
+    enum class AddPendingFileToQueueResult(val value:String): SmartEnum {
+        PENDING_FILES_QUEUE_OK("PENDING_FILES_QUEUE_OK"),
+        PENDING_FILES_NO_REQUEST_ID("PENDING_FILES_NO_REQUEST"),
+        PENDING_FILES_ALREADY_EXISTS("PENDING_FILES_ALREADY_EXISTS");
+        override fun getMessage(): String {
+            var result = ""
+            when(this) {
+                PENDING_FILES_QUEUE_OK -> result = ""
+                PENDING_FILES_NO_REQUEST_ID -> result = "Request object does not contain ID"
+                PENDING_FILES_ALREADY_EXISTS -> result = "Pending file request for this file already exists"
+            }
+            return result
+        }
+
+    }
+
+    /**
      * Timer object, used to run requests queue processing cronjob
      * in separate thread
      */
@@ -215,15 +287,20 @@ class MessageCenter : Service() {
     override fun onCreate() {
         super.onCreate()
         launch {
-            try {
-                ws = WebSocketFactory().createSocket("ws://" + SERVER_HOST + ":" + SERVER_PORT + SERVER_ENDPOINT)
-                ws.connect()
-            } catch (e: Exception) {
-                connected = false
+            if (!testingMode) {
+                try {
+                    ws = WebSocketFactory().createSocket("ws://" + SERVER_HOST + ":" + SERVER_PORT + SERVER_ENDPOINT)
+                    ws.connect()
+                } catch (e: Exception) {
+                    connected = false
+                }
+            } else {
+                ws = WebSocketFactory().createSocket("ws://testing")
             }
             ws.addListener(messageListener)
+            timer.schedule(Cronjob(),0,1000)
         }
-        timer.schedule(Cronjob(),0,1000)
+
     }
 
     /**
@@ -287,10 +364,11 @@ class MessageCenter : Service() {
                                     "request" to request,
                                     "timestamp" to System.currentTimeMillis() / 1000)
                     )
-                    request.remove("sender")
                     val json_request = JSONObject()
                     for ((index, value) in request) {
-                        json_request[index] = value
+                        if (index!="sender") {
+                            json_request[index] = value
+                        }
                     }
                     result.add(toJSONString(json_request))
                     launch {
@@ -303,6 +381,17 @@ class MessageCenter : Service() {
             }
         }
         return result
+    }
+
+    fun addPendingFile(checksum:Long,request:HashMap<String,Any>):AddPendingFileToQueueResult {
+        if (!request.containsKey("request_id")) {
+            return AddPendingFileToQueueResult.PENDING_FILES_NO_REQUEST_ID
+        } else if (pending_files_queue.containsKey(checksum)) {
+            return AddPendingFileToQueueResult.PENDING_FILES_ALREADY_EXISTS
+        } else {
+            pending_files_queue[checksum] = mapOf("request" to request,"timestamp" to (System.currentTimeMillis()/1000))
+            return AddPendingFileToQueueResult.PENDING_FILES_QUEUE_OK
+        }
     }
 
     /**
@@ -320,6 +409,13 @@ class MessageCenter : Service() {
     }
 
     /**
+     * Function returns length of pending files queue
+     */
+    fun getPendingFilesQueueLength():Int {
+        return pending_files_queue.count()
+    }
+
+    /**
      * Function returns copy of requests queue
      */
     fun getRequestsQueue(): HashMap<String,Any> {
@@ -334,6 +430,13 @@ class MessageCenter : Service() {
     }
 
     /**
+     * Function returns copy of pending files queue
+     */
+    fun getPendingFilesQueue(): HashMap<Long,Any> {
+        return pending_files_queue.clone() as HashMap<Long, Any>
+    }
+
+    /**
      * Function removes outdated requests from requests_queue
      */
     fun cleanRequestsQueue() {
@@ -343,7 +446,7 @@ class MessageCenter : Service() {
                 val request = value as HashMap<String, Any>
                 if (request.contains("timestamp")) {
                     val timestamp = request.get("timestamp") as Long
-                    if (System.currentTimeMillis()/1000 - timestamp > REQUESTS_QUEUE_TIMEOUT) {
+                    if (System.currentTimeMillis()/1000 - timestamp >= REQUESTS_QUEUE_TIMEOUT) {
                         requests_queue.remove(index)
                     }
                 } else {
@@ -363,7 +466,7 @@ class MessageCenter : Service() {
                 val request = value as HashMap<String, Any>
                 if (request.contains("timestamp")) {
                     val timestamp = request.get("timestamp") as Long
-                    if (System.currentTimeMillis()/1000 - timestamp > PENDING_RESPONSES_QUEUE_TIMEOUT) {
+                    if (System.currentTimeMillis()/1000 - timestamp >= PENDING_RESPONSES_QUEUE_TIMEOUT) {
                         pending_responses_queue.remove(index)
                     }
                 } else {
@@ -374,9 +477,30 @@ class MessageCenter : Service() {
     }
 
     /**
+     * Function removes outdated requests from pending_files_queue ]
+     */
+    fun cleanPendingFilesQueue() {
+        if (pending_files_queue.count()>0) {
+            val q = pending_files_queue.clone() as HashMap<Long, Any>
+            for ((index, value) in q) {
+                val request = value as HashMap<String, Any>
+                if (request.contains("timestamp")) {
+                    val timestamp = request.get("timestamp") as Long
+
+                    if (System.currentTimeMillis()/1000 - timestamp >= PENDING_FILES_QUEUE_TIMEOUT) {
+                        pending_files_queue.remove(index)
+                    }
+                } else {
+                    pending_files_queue.remove(index)
+                }
+            }
+        }
+    }
+
+    /**
      * Function removes pending response, specified by provided [request_id].
      *
-     * @param request_id Request_id which record should be reomoved
+     * @param request_id Request_id which record should be removed
      */
     fun removePendingResponse(request_id:String) {
         if (pending_responses_queue.contains(request_id)) {
@@ -385,13 +509,33 @@ class MessageCenter : Service() {
     }
 
     /**
+     * Function removes pending file queue entry, specified by provided [checksum].
+     *
+     * @param checksum Checksum of file to remove
+     */
+    fun removePendingFile(checksum:Long) {
+        if (pending_files_queue.contains(checksum)) {
+            pending_files_queue.remove(checksum)
+        }
+    }
+
+    /**
      * Function which runs every second to send all requests from requests_queue
      * and clean outdated requests
      */
     fun runCronjob() {
+        val logger = Logger.getLogger("websocket_binary")
+        if (!connected && !testingMode) {
+            try {
+                ws.connect()
+            } catch (e:Exception) {
+                logger.log(Level.SEVERE,"Failed to connect to WebSocket server")
+            }
+        }
         processRequests()
         cleanRequestsQueue()
         cleanPendingResponsesQueue()
+        cleanPendingFilesQueue()
     }
 
 }

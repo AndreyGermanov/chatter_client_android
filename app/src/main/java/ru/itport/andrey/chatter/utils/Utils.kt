@@ -9,8 +9,8 @@ import android.content.Context
 import android.content.DialogInterface
 import android.net.Uri
 import android.provider.MediaStore
+import android.widget.ProgressBar
 import org.json.simple.JSONObject
-import android.text.TextUtils
 import java.util.regex.Pattern
 
 
@@ -27,6 +27,21 @@ fun showAlertDialog(title:String, message: String, context:Context) {
     setMessage(message).
     setNeutralButton("OK", fun (iface:DialogInterface,textId:Int) {}).
     create().show()
+}
+
+/**
+ * Function shows progress bar of operation in popup dialog
+ *
+ * @param context Link to activity, which displays dialog
+ */
+fun showProgressBar(context:Context):AlertDialog {
+    var dialog = AlertDialog.Builder(context)
+    var progressBar = ProgressBar(context)
+    progressBar.isIndeterminate = true
+    dialog.setView(progressBar)
+    dialog.setTitle("Status")
+    dialog.setMessage("Connecting ...")
+    return dialog.create()
 }
 
 /**

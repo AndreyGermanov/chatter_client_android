@@ -4,14 +4,21 @@
 
 package ru.itport.andrey.chatter.actions
 
+import android.content.res.Resources
+import android.graphics.drawable.Drawable
+import android.support.v4.content.ContextCompat.getDrawable
+import kotlinx.android.synthetic.main.activity_profile_settings.view.*
+import org.json.simple.JSONArray
 import org.json.simple.JSONObject
 import org.junit.Assert.*
 import org.junit.Test
+import ru.itport.andrey.chatter.R
 import ru.itport.andrey.chatter.core.MessageCenter
-import ru.itport.andrey.chatter.reducers.LoginScreenReducer
+import ru.itport.andrey.chatter.store.AppScreens
 import ru.itport.andrey.chatter.store.LoginFormMode
 import ru.itport.andrey.chatter.store.appStore
-import ru.itport.andrey.chatter.utils.toJSONString
+import java.io.FileInputStream
+import java.util.zip.Adler32
 
 class LoginScreenActionsTest {
 
@@ -104,9 +111,10 @@ class LoginScreenActionsTest {
         assertEquals("Should add request to requests queue",1,msgCenter.getRequestsQueueLength())
         LoginScreenActions.register()
         assertEquals("Should not add duplicate request while current request is in progress", 1, msgCenter.getRequestsQueueLength())
+        msgCenter.testingMode = true
         msgCenter.onCreate()
         msgCenter.connected = true
-        Thread.sleep(2000)
+        Thread.sleep(1000)
         assertEquals("Should send request and remove it from requests queue",0,msgCenter.getRequestsQueueLength())
         assertEquals("Should add request to pending responses queue",1,msgCenter.getPendingResponsesQueueLength())
         Thread.sleep(1000)
@@ -144,5 +152,183 @@ class LoginScreenActionsTest {
         assertEquals("Error should be RESULT_ERROR_LOGIN_EXISTS",LoginScreenActions.LoginScreenRegisterErrors.RESULT_ERROR_LOGIN_EXISTS,
                 errors["general"] as LoginScreenActions.LoginScreenRegisterErrors)
         assertEquals("Should stay on REGISTER screen in case of error",LoginFormMode.REGISTER,state["mode"] as LoginFormMode)
+    }
+
+    @Test
+    fun login() {
+        // Client side response handling
+        LoginScreenActions.login(null)
+        var state = appStore.state["LoginForm"] as JSONObject
+        assertNotNull("Should contain errors object",state["errors"])
+        var errors = state["errors"] as JSONObject
+        assertNotNull("Should contain error for login field",errors["login"])
+        assertNotNull("Should contain error for password field",errors["password"])
+        assertEquals("Error for login field incorrect error",
+                LoginScreenActions.LoginScreenLoginErrors.RESULT_ERROR_INCORRECT_LOGIN,
+                errors["login"] as LoginScreenActions.LoginScreenLoginErrors)
+        assertEquals("Error for password field incorrect",
+                LoginScreenActions.LoginScreenLoginErrors.RESULT_ERROR_INCORRECT_PASSWORD,
+                errors["password"] as LoginScreenActions.LoginScreenLoginErrors)
+
+        appStore.dispatch(LoginScreenActions.changeProperty("login","test"))
+        appStore.dispatch(LoginScreenActions.changeProperty("password","123"))
+        val msgCenter = MessageCenter()
+        msgCenter.testingMode = true
+        msgCenter.onCreate()
+        LoginScreenActions.messageCenter = msgCenter
+        LoginScreenActions.login()
+        state = appStore.state["LoginForm"] as JSONObject
+        errors = state["errors"] as JSONObject
+        assertNotNull("Should contain general error",errors["general"])
+        var error = errors["general"] as LoginScreenActions.LoginScreenLoginErrors
+        assertEquals("Should return connection error message",LoginScreenActions.LoginScreenLoginErrors.RESULT_ERROR_CONNECTION_ERROR,error)
+        msgCenter.messageListener.onConnected(null,null)
+        LoginScreenActions.login()
+        state = appStore.state["LoginForm"] as JSONObject
+        assertTrue("Should show load progress indicator, before make request to server",state["show_progress_indicator"] as Boolean)
+        assertEquals("Should add login request to requests queue",1,msgCenter.getRequestsQueueLength())
+        Thread.sleep(1000)
+        assertEquals("Should send request and remove it from requests queue",0,msgCenter.getRequestsQueueLength())
+        assertEquals("Should send request and move it to pending responses queue",1,msgCenter.getPendingResponsesQueueLength())
+        var pendingRequest = msgCenter.getPendingResponsesQueue().iterator().next().value as HashMap<String,Any>
+        var request_id = pendingRequest.get("request_id") as String
+        Thread.sleep(1000)
+        var msg = """{"request_id":"fake","status":"error","action":"login_user","status_code":"RESULT_ERROR_NOT_ACTIVATED"}""";
+        msgCenter.messageListener.onTextMessage(null,msg)
+        assertEquals("Should not react to response with incorrect request_id",1,msgCenter.getPendingResponsesQueueLength())
+        Thread.sleep(1000)
+        msg = """{"request_id":"${request_id}","status":"error","status_code":"RESULT_ERROR_NOT_ACTIVATED","action":"login_user"}""";
+        msgCenter.messageListener.onTextMessage(null,msg)
+        assertEquals("Should remove record from pending responses",0,msgCenter.getPendingResponsesQueueLength())
+        state = appStore.state["LoginForm"] as JSONObject
+        errors = state["errors"] as JSONObject
+        assertFalse("Should remove progress indicator, after make request to server",state["show_progress_indicator"] as Boolean)
+        assertEquals("Should return 'Account not activated' error in correct format",
+                LoginScreenActions.LoginScreenLoginErrors.RESULT_ERROR_NOT_ACTIVATED,
+                errors["general"] as LoginScreenActions.LoginScreenLoginErrors )
+        LoginScreenActions.login()
+        Thread.sleep(2000)
+        pendingRequest = msgCenter.getPendingResponsesQueue().iterator().next().value as HashMap<String,Any>
+        request_id = pendingRequest.get("request_id") as String
+        msg = """{"request_id":"${request_id}","status":"error","status_code":"RESULT_ERROR_ALREADY_LOGIN","action":"login_user"}""";
+        msgCenter.messageListener.onTextMessage(null,msg)
+        state = appStore.state["LoginForm"] as JSONObject
+        errors = state["errors"] as JSONObject
+        assertEquals("Should return 'User already login' error in correct format",
+                LoginScreenActions.LoginScreenLoginErrors.RESULT_ERROR_ALREADY_LOGIN,
+                errors["general"] as LoginScreenActions.LoginScreenLoginErrors )
+        LoginScreenActions.login()
+        Thread.sleep(2000)
+        pendingRequest = msgCenter.getPendingResponsesQueue().iterator().next().value as HashMap<String,Any>
+        request_id = pendingRequest.get("request_id") as String
+        msg = """{"request_id":"${request_id}","status":"ok","status_code":"RESULT_OK","action":"login_user"}""";
+        msgCenter.messageListener.onTextMessage(null,msg)
+        state = appStore.state["LoginForm"] as JSONObject
+        errors = state["errors"] as JSONObject
+        assertEquals("Should return Unknown error if success response does not contain all required data, as list of rooms",
+                LoginScreenActions.LoginScreenLoginErrors.RESULT_ERROR_UNKNOWN,
+                errors["general"] as LoginScreenActions.LoginScreenLoginErrors )
+        LoginScreenActions.login()
+        Thread.sleep(2000)
+        pendingRequest = msgCenter.getPendingResponsesQueue().iterator().next().value as HashMap<String,Any>
+        request_id = pendingRequest.get("request_id") as String
+        msg = """{"request_id":"${request_id}","status":"ok","status_code":"RESULT_OK","action":"login_user","rooms":[{"_id":"123456","name":"Room 1"},{"_id":"54321","name":"Room 2"}]}"""
+        msgCenter.messageListener.onTextMessage(null,msg)
+        state = appStore.state as JSONObject
+        var userState = state["User"] as JSONObject
+        assertTrue("Should set 'IsLogin' of User state to true",userState["isLogin"] as Boolean)
+        assertEquals("Should move to 'User profile' screen if no default room set",AppScreens.USER_PROFILE,state["current_activity"] as AppScreens)
+        LoginScreenActions.login()
+        Thread.sleep(2000)
+        pendingRequest = msgCenter.getPendingResponsesQueue().iterator().next().value as HashMap<String,Any>
+        request_id = pendingRequest.get("request_id") as String
+        msg = """{"request_id":"${request_id}","status":"ok","status_code":"RESULT_OK","action":"login_user","user_id":"u1","session_id":"s1","default_room":"54321","first_name":"Bob","last_name":"Johnson",
+            |"birthDate":1234567890,"gender":"M","rooms":[{"_id":"123456","name":"Room 1"},{"_id":"54321","name":"Room 2"}]}""".trimMargin()
+        msgCenter.messageListener.onTextMessage(null,msg)
+        state = appStore.state as JSONObject
+        userState = state["User"] as JSONObject
+        var userProfile = state["UserProfile"] as JSONObject
+        assertTrue("Should set 'IsLogin' of User state to true",userState["isLogin"] as Boolean)
+        assertEquals("Should move to 'Chat' screen if default room is set",state["current_activity"] as AppScreens,AppScreens.CHAT)
+        assertEquals("Should set correct user_id to User","u1",userState["user_id"] as String)
+        assertEquals("Should set correct session_id to User","s1",userState["session_id"] as String)
+        assertEquals("Should set correct first_name to User","Bob",userState["first_name"] as String)
+        assertEquals("Should set correct last_name to User","Johnson",userState["last_name"] as String)
+        assertEquals("Should set correct gender to User","M", userState["gender"] as String)
+        assertEquals("Should set correct birthDate to User",1234567890,userState["birthDate"] as Int)
+        assertEquals("Should set correct first_name to User Profile","Bob",userProfile["first_name"] as String)
+        assertEquals("Should set correct last_name to User Profile","Johnson",userProfile["last_name"] as String)
+        assertEquals("Should set correct gender to User Profile","M",userProfile["gender"] as String)
+        assertEquals("Should set correct birthDate to User Profile",1234567890,userProfile["birthDate"] as Int)
+        assertEquals("Should set rooms to user profile",2,(userProfile["rooms"] as JSONArray).count())
+        LoginScreenActions.login()
+        Thread.sleep(1000)
+        pendingRequest = msgCenter.getPendingResponsesQueue().iterator().next().value as HashMap<String,Any>
+        request_id = pendingRequest.get("request_id") as String
+        Thread.sleep(1000)
+        var stream = FileInputStream(System.getProperty("user.dir")+"/app/src/main/res/drawable/user.png")
+        var img = stream.readBytes()
+        stream = FileInputStream(System.getProperty("user.dir")+"/app/src/main/res/drawable/profile.png")
+        var fake_img = stream.readBytes()
+
+        var checksumEngine = Adler32()
+        checksumEngine.update(img)
+        var checksum = checksumEngine.value
+        LoginScreenActions.login()
+        Thread.sleep(1000)
+        pendingRequest = msgCenter.getPendingResponsesQueue().iterator().next().value as HashMap<String,Any>
+        request_id = pendingRequest.get("request_id") as String
+        Thread.sleep(1000)
+        msg = """{"request_id":"${request_id}","status":"ok","status_code":"RESULT_OK","action":"login_user","user_id":"u1","session_id":"s1","default_room":"54321","first_name":"Bob","last_name":"Johnson",
+            |"birthDate":1234567890,"gender":"M","rooms":[{"_id":"123456","name":"Room 1"},{"_id":"54321","name":"Room 2"}],"checksum":"${checksum}"}""".trimMargin()
+        msgCenter.messageListener.onTextMessage(null,msg)
+        state = appStore.state as JSONObject
+        userState = state["User"] as JSONObject
+        userProfile = state["UserProfile"] as JSONObject
+        assertEquals("Should save request to pending files queue",1,msgCenter.getPendingFilesQueueLength())
+
+        val pendingFile = msgCenter.getPendingFilesQueue().iterator().next()
+        val pendingFileChecksum = pendingFile.key
+        val pendingFileEntry = pendingFile.value as HashMap<String,Any>
+        assertEquals("Pending file queue key should be checksum of file",checksum,pendingFileChecksum)
+        assertNotNull("Pending file queue entry should contain timestamp of record",pendingFileEntry["timestamp"])
+        assertNotNull("Pending file queue entry should contain request, which initiated this file transfer",pendingFileEntry["request"])
+        var request = pendingFileEntry["request"] as HashMap<String,Any>
+        assertEquals("ID of file response request should be equal to initial request",request_id,request["request_id"].toString())
+        msgCenter.PENDING_FILES_QUEUE_TIMEOUT = 1
+        Thread.sleep(2000)
+        assertEquals("Should remove entry from pending files queue, if no file received during timeout",0,msgCenter.getPendingFilesQueueLength())
+        msgCenter.PENDING_FILES_QUEUE_TIMEOUT = 120
+        LoginScreenActions.login()
+        Thread.sleep(2000)
+        pendingRequest = msgCenter.getPendingResponsesQueue().iterator().next().value as HashMap<String,Any>
+        request_id = pendingRequest.get("request_id") as String
+        msg = """{"request_id":"${request_id}","status":"ok","status_code":"RESULT_OK","action":"login_user","user_id":"u1","session_id":"s1","default_room":"54321","first_name":"Bob","last_nama":"Johnson",
+            |"birthDate":1234567890,"gender":"M","rooms":[{"_id":"123456","name":"Room 1"},{"_id":"54321","name":"Room 2"}],"checksum":"${checksum}"}""".trimMargin()
+        msgCenter.messageListener.onTextMessage(null,msg)
+        msgCenter.messageListener.onBinaryMessage(null,fake_img)
+        state = appStore.state as JSONObject
+        userState = state["User"] as JSONObject
+        userProfile = state["UserProfile"] as JSONObject
+        assertNull("Should not update profile with fake image which has different checksum",userState["profileImage"])
+        assertNull("Should not update profile with fake image which has different checksum",userProfile["profileImage"])
+        LoginScreenActions.login()
+        Thread.sleep(2000)
+        pendingRequest = msgCenter.getPendingResponsesQueue().iterator().next().value as HashMap<String,Any>
+        request_id = pendingRequest.get("request_id") as String
+        msg = """{"request_id":"${request_id}","status":"ok","status_code":"RESULT_OK","action":"login_user","user_id":"u1","session_id":"s1","default_room":"54321","first_name":"Bob","last_nama":"Johnson",
+            |"birthDate":1234567890,"gender":"M","rooms":[{"_id":"123456","name":"Room 1"},{"_id":"54321","name":"Room 2"}],"checksum":"${checksum}"}""".trimMargin()
+        msgCenter.messageListener.onTextMessage(null,msg)
+        msgCenter.messageListener.onBinaryMessage(null,img)
+        state = appStore.state as JSONObject
+        userState = state["User"] as JSONObject
+        userProfile = state["UserProfile"] as JSONObject
+        assertNotNull("Should update profile with correct image",userState["profileImage"])
+        assertNotNull("Should update profile with correct image",userProfile["profileImage"])
+        val profileImg = userState["profileImage"] as ByteArray
+        checksumEngine.reset()
+        checksumEngine.update(profileImg)
+        assertEquals("Updated profile image must have the same checksum as image, which sent by server",checksum,checksumEngine.value)
+        assertEquals("Should remove entry from pending files queue after processing",0,msgCenter.getPendingFilesQueueLength())
     }
 }
