@@ -16,6 +16,7 @@ import ru.itport.andrey.chatter.actions.SmartEnum
 import ru.itport.andrey.chatter.store.AppScreens
 import ru.itport.andrey.chatter.store.LoginFormMode
 import ru.itport.andrey.chatter.store.appStore
+import ru.itport.andrey.chatter.utils.hideSoftKeyboard
 import ru.itport.andrey.chatter.utils.showAlertDialog
 import ru.itport.andrey.chatter.utils.showProgressBar
 import trikita.anvil.Anvil
@@ -69,6 +70,7 @@ class LoginScreen : BaseScreen() {
                         AppScreens.CHAT -> intent = Intent(this@LoginScreen,ChatScreen::class.java)
                     }
                     startActivity(intent)
+                    finish()
                 }
             }
             Anvil.render()
@@ -81,6 +83,9 @@ class LoginScreen : BaseScreen() {
      */
     fun drawNavigation() {
         linearLayout {
+            onClick {
+                hideSoftKeyboard(this)
+            }
             gravity(BaseDSL.CENTER_HORIZONTAL)
             size(MATCH, WRAP)
             orientation(LinearLayout.HORIZONTAL)
@@ -118,6 +123,9 @@ class LoginScreen : BaseScreen() {
      */
     fun drawLoginForm() {
         linearLayout {
+            onClick {
+                hideSoftKeyboard(this)
+            }
             orientation(LinearLayout.VERTICAL)
             val errors = state["errors"] as JSONObject
             visibility(state["mode"] as LoginFormMode == LoginFormMode.LOGIN)
@@ -156,8 +164,6 @@ class LoginScreen : BaseScreen() {
                 }
                 if (errors["password"]!=null && errors["password"] is LoginScreenActions.LoginScreenLoginErrors) {
                     val msg = (errors["password"] as LoginScreenActions.LoginScreenLoginErrors).getMessage()
-                    println(msg)
-                    println("printed")
                     tableRow {
                         orientation(LinearLayout.HORIZONTAL)
                         textView {
@@ -185,6 +191,9 @@ class LoginScreen : BaseScreen() {
      */
     fun drawRegisterForm() {
         linearLayout {
+            onClick {
+                hideSoftKeyboard(this)
+            }
             size(MATCH,MATCH)
             visibility(state["mode"] as LoginFormMode == LoginFormMode.REGISTER)
             orientation(LinearLayout.VERTICAL)

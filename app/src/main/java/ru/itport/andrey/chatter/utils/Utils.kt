@@ -12,6 +12,8 @@ import android.provider.MediaStore
 import android.widget.ProgressBar
 import org.json.simple.JSONObject
 import java.util.regex.Pattern
+import android.app.Activity
+import android.view.inputmethod.InputMethodManager
 
 
 /**
@@ -100,4 +102,16 @@ fun isValidEmail(email: CharSequence): Boolean {
         result = false
     }
     return result
+}
+
+/**
+ * Function used to hide onscreen keyboard
+ *
+ * @param activity Link to activity which wants to hide keyboard
+ */
+fun hideSoftKeyboard(activity: Activity) {
+    val inputMethodManager = activity.getSystemService(
+            Activity.INPUT_METHOD_SERVICE) as InputMethodManager
+    inputMethodManager!!.hideSoftInputFromWindow(
+            activity.currentFocus!!.windowToken, 0)
 }

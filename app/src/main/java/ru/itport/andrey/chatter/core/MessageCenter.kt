@@ -70,7 +70,7 @@ class MessageCenter : Service() {
          */
         override fun onTextMessage(websocket: WebSocket?, text: String?) {
             super.onTextMessage(websocket, text)
-            val logger = Logger.getLogger("websocket_text")
+            val logger = Logger.getLogger("onTextMessage")
             val parser = JSONParser()
             var response = JSONObject()
             try {
@@ -107,7 +107,7 @@ class MessageCenter : Service() {
          */
         override fun onBinaryMessage(websocket: WebSocket?, binary: ByteArray?) {
             super.onBinaryMessage(websocket, binary)
-            val logger = Logger.getLogger("websocket_binary")
+            val logger = Logger.getLogger("onBinaryMessage")
             if (binary != null) {
                 val checksumEngine = Adler32()
                 checksumEngine.update(binary)
@@ -543,12 +543,18 @@ class MessageCenter : Service() {
      * Function which runs every second and does background maintenance tasks
      */
     fun runCronjob() {
-        val logger = Logger.getLogger("websocket_binary")
+        val logger = Logger.getLogger("runCronjob")
         if (!connected && !testingMode) {
             try {
                 ws.connect()
             } catch (e:Exception) {
-                logger.log(Level.SEVERE,"Failed to connect to WebSocket server")
+                try {
+                    ws = WebSocketFactory().createSocket("ws://" + SERVER_HOST + ":" + SERVER_PORT + SERVER_ENDPOINT)
+                    ws.connect()
+                } catch (e:Exception) {
+                    logger.log(Level.SEVERE,"Failed to connect to WebSocket server - "+e.message)
+                }
+
             }
         }
         processRequests()
