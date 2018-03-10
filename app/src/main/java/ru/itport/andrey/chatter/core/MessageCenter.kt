@@ -383,6 +383,14 @@ class MessageCenter : Service() {
         return result
     }
 
+    /**
+     * Used to add entry to pending_files_queue
+     *
+     * @param checksum Checksum of file which is pending
+     * @param request Request, which is waiting for this file
+     *
+     * @return Error or success code of operation
+     */
     fun addPendingFile(checksum:Long,request:HashMap<String,Any>):AddPendingFileToQueueResult {
         if (!request.containsKey("request_id")) {
             return AddPendingFileToQueueResult.PENDING_FILES_NO_REQUEST_ID
@@ -396,6 +404,8 @@ class MessageCenter : Service() {
 
     /**
      * Function returns length of requests queue
+     *
+     * @return Length of queue
      */
     fun getRequestsQueueLength():Int {
         return requests_queue.count()
@@ -403,6 +413,8 @@ class MessageCenter : Service() {
 
     /**
      * Function returns length of pending responses queue
+     *
+     * @return Length of queue
      */
     fun getPendingResponsesQueueLength():Int {
         return pending_responses_queue.count()
@@ -410,6 +422,8 @@ class MessageCenter : Service() {
 
     /**
      * Function returns length of pending files queue
+     *
+     * @return Length of queue
      */
     fun getPendingFilesQueueLength():Int {
         return pending_files_queue.count()
@@ -417,6 +431,8 @@ class MessageCenter : Service() {
 
     /**
      * Function returns copy of requests queue
+     *
+     * @return Requests queue Hashmap
      */
     fun getRequestsQueue(): HashMap<String,Any> {
         return requests_queue.clone() as HashMap<String,Any>
@@ -424,6 +440,8 @@ class MessageCenter : Service() {
 
     /**
      * Function returns copy of pending responses queue
+     *
+     * @return Pending responses queue HashMap
      */
     fun getPendingResponsesQueue(): HashMap<String,Any> {
         return pending_responses_queue.clone() as HashMap<String, Any>
@@ -431,6 +449,8 @@ class MessageCenter : Service() {
 
     /**
      * Function returns copy of pending files queue
+     *
+     * @return Pending files queue HashMap
      */
     fun getPendingFilesQueue(): HashMap<Long,Any> {
         return pending_files_queue.clone() as HashMap<Long, Any>
@@ -457,7 +477,7 @@ class MessageCenter : Service() {
     }
 
     /**
-     * Function removes outdated requests from pending_responses_queue ]
+     * Function removes outdated requests from pending_responses_queue
      */
     fun cleanPendingResponsesQueue() {
         if (pending_responses_queue.count()>0) {
@@ -477,7 +497,7 @@ class MessageCenter : Service() {
     }
 
     /**
-     * Function removes outdated requests from pending_files_queue ]
+     * Function removes outdated requests from pending_files_queue
      */
     fun cleanPendingFilesQueue() {
         if (pending_files_queue.count()>0) {
@@ -520,8 +540,7 @@ class MessageCenter : Service() {
     }
 
     /**
-     * Function which runs every second to send all requests from requests_queue
-     * and clean outdated requests
+     * Function which runs every second and does background maintenance tasks
      */
     fun runCronjob() {
         val logger = Logger.getLogger("websocket_binary")
