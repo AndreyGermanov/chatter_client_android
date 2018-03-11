@@ -38,10 +38,10 @@ var appState = JSONObject(mapOf(
             "isLogin" to false,
             "login" to "",
             "email" to "",
-            "fisrtName" to "",
-            "lastName" to "",
+            "first_name" to "",
+            "last_name" to "",
             "gender" to "",
-            "birthDte" to 0,
+            "birthDte" to System.currentTimeMillis()/1000,
             "default_room" to "",
             "profileImage" to null
     )),
@@ -55,17 +55,21 @@ var appState = JSONObject(mapOf(
             "popup_message" to "",
             "errors" to JSONObject()
     )),"UserProfile" to JSONObject(mapOf(
+            "errors" to JSONObject(),
             "login" to "",
             "email" to "",
             "password" to "",
             "confirm_password" to "",
-            "firstName" to "",
-            "lastName" to "",
+            "first_name" to "",
+            "last_name" to "",
             "gender" to "",
             "birthDate" to 0,
             "default_room" to "",
             "profileImage" to null,
-            "rooms" to JSONObject()
+            "rooms" to JSONObject(),
+            "show_progress_indicator" to false,
+            "popup_message" to "",
+            "show_date_picker_dialog" to false
     ))
 ))
 

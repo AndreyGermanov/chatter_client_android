@@ -547,10 +547,12 @@ class MessageCenter : Service() {
         if (!connected && !testingMode) {
             try {
                 ws.connect()
+                ws.addListener(messageListener)
             } catch (e:Exception) {
                 try {
                     ws = WebSocketFactory().createSocket("ws://" + SERVER_HOST + ":" + SERVER_PORT + SERVER_ENDPOINT)
                     ws.connect()
+                    ws.addListener(messageListener)
                 } catch (e:Exception) {
                     logger.log(Level.SEVERE,"Failed to connect to WebSocket server - "+e.message)
                 }

@@ -322,6 +322,7 @@ class LoginScreenActions: Actions() {
                     appStore.dispatch(LoginScreenActions.changeProperty("errors",errors))
                     appStore.dispatch(LoginScreenActions.changeProperty("mode", LoginFormMode.LOGIN))
                 } else {
+                    println(response)
                     appStore.dispatch(UserActions.changeProperty("isLogin", true))
                     appStore.dispatch(UserActions.changeProperty("user_id", response["user_id"].toString()))
                     appStore.dispatch(UserActions.changeProperty("session_id", response["session_id"].toString()))

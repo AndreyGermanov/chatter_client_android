@@ -14,6 +14,7 @@ import android.os.IBinder
 import android.view.Window
 import android.widget.LinearLayout
 import org.json.simple.JSONObject
+import redux.api.Store
 import ru.itport.andrey.chatter.actions.LoginScreenActions
 import ru.itport.andrey.chatter.core.MessageCenter
 import ru.itport.andrey.chatter.store.appStore
@@ -31,6 +32,11 @@ open class BaseScreen : Activity() {
      * Redux Application state
      */
     lateinit var state: JSONObject
+
+    /**
+     * Subscription to application store
+     */
+    lateinit var subscription: Store.Subscription
 
     /**
      * Link to full application state

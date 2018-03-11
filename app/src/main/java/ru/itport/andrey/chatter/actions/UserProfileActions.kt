@@ -21,6 +21,28 @@ class UserProfileActions: Actions() {
         CHANGE_PROPERTY
     }
 
+    /**
+     * User profile submit errors definition
+     */
+    enum class UserProfileErrors(val value:String): SmartEnum {
+        RESULT_OK("RESULT_OK"),
+        RESULT_ERROR_FIELD_IS_EMPTY("RESULT_ERROR_FIELD_IS_EMPTY"),
+        RESULT_ERROR_INCORRECT_FIELD_VALUE("RESULT_ERROR_INCORRECT_FIELD_VALUE"),
+        RESULT_ERROR_CONNECTION_ERROR("RESULT_ERROR_CONNECTION_ERROR"),
+        RESULT_ERROR_UNKNOWN("RESULT_ERROR_UNKNOWN");
+        override fun getMessage():String {
+            var result = ""
+            when(this) {
+                RESULT_OK -> result = ""
+                RESULT_ERROR_FIELD_IS_EMPTY -> result = "This field is required."
+                RESULT_ERROR_INCORRECT_FIELD_VALUE -> result = "Incorrect field value."
+                RESULT_ERROR_CONNECTION_ERROR -> result = "Server connection error."
+                RESULT_ERROR_UNKNOWN -> result = "Unknown error. Please contact support."
+            }
+            return result
+        }
+    }
+
     companion object:MessageCenterResponseReceiver {
 
         /**

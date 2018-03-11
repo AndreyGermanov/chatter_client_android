@@ -20,7 +20,9 @@ fun LoginScreenReducer(state:JSONObject,action:Any):JSONObject {
         if (action["type"] is LoginScreenActions.LoginScreenActionTypes) {
             when (action["type"] as LoginScreenActions.LoginScreenActionTypes) {
                 LoginScreenActions.LoginScreenActionTypes.SWITCH_MODE -> newState["mode"] = action["mode"] as LoginFormMode
-                LoginScreenActions.LoginScreenActionTypes.CHANGE_TEXT_FIELD -> newState[action["property_name"].toString()] = action["property_value"]
+                LoginScreenActions.LoginScreenActionTypes.CHANGE_TEXT_FIELD -> {
+                    newState[action["property_name"].toString()] = action["property_value"]
+                }
             }
         }
     }

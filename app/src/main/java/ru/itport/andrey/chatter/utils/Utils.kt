@@ -13,7 +13,12 @@ import android.widget.ProgressBar
 import org.json.simple.JSONObject
 import java.util.regex.Pattern
 import android.app.Activity
+import android.app.DatePickerDialog
+import android.os.Environment
 import android.view.inputmethod.InputMethodManager
+import java.io.File
+import java.text.SimpleDateFormat
+import java.util.*
 
 
 /**
@@ -29,6 +34,17 @@ fun showAlertDialog(title:String, message: String, context:Context) {
     setMessage(message).
     setNeutralButton("OK", fun (iface:DialogInterface,textId:Int) {}).
     create().show()
+}
+
+/**
+ * Shows DatePicker dialog with initial date setup
+ */
+fun showDatePickerDialog(initialDate: Date, context:Context) {
+    val listener = context as DatePickerDialog.OnDateSetListener
+    if (context is DatePickerDialog.OnDateSetListener) {
+        var dialog = DatePickerDialog(context,listener,initialDate.year+1900,initialDate.month,initialDate.date)
+        dialog.show()
+    }
 }
 
 /**
@@ -112,6 +128,23 @@ fun isValidEmail(email: CharSequence): Boolean {
 fun hideSoftKeyboard(activity: Activity) {
     val inputMethodManager = activity.getSystemService(
             Activity.INPUT_METHOD_SERVICE) as InputMethodManager
-    inputMethodManager!!.hideSoftInputFromWindow(
-            activity.currentFocus!!.windowToken, 0)
+    if (activity.currentFocus != null) {
+        inputMethodManager!!.hideSoftInputFromWindow(
+                activity.currentFocus!!.windowToken, 0)
+    }
+}
+
+/**
+ * Function used to create temporary image file, which used by camera module
+ * to store captured image
+ *
+ * @param context Link to activity, which calls this method
+ * @return File object with image
+ */
+fun createTempImage(context:Context): File {
+    val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss").format(Date())
+    val imageFileName = "img_"+timestamp+"_"
+    val storageDir = context.getExternalFilesDir(Environment.DIRECTORY_PICTURES)
+    val image = File.createTempFile(imageFileName,".jpg",storageDir)
+    return image
 }

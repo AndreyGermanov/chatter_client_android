@@ -11,6 +11,7 @@ import trikita.anvil.DSL.*
 import trikita.anvil.BaseDSL.WRAP
 import android.widget.LinearLayout
 import org.json.simple.JSONObject
+import redux.api.Store
 import ru.itport.andrey.chatter.actions.LoginScreenActions
 import ru.itport.andrey.chatter.actions.SmartEnum
 import ru.itport.andrey.chatter.store.AppScreens
@@ -292,7 +293,7 @@ class LoginScreen : BaseScreen() {
      */
     override fun drawView() : RenderableView {
         this.requestWindowFeature(Window.FEATURE_NO_TITLE)
-        appStore.subscribe {
+        subscription = appStore.subscribe {
             this.runOnUiThread(UpdateUI())
         }
         return object: RenderableView(this) {
@@ -307,5 +308,13 @@ class LoginScreen : BaseScreen() {
                 }
             }
         }
+    }
+
+    /**
+     * Function runs when application destroys this screen
+     */
+    override fun onDestroy() {
+        super.onDestroy()
+        subscription.unsubscribe()
     }
 }
