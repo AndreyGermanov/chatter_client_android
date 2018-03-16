@@ -3,6 +3,7 @@
  */
 package ru.itport.andrey.chatter.store
 
+import org.json.simple.JSONArray
 import org.json.simple.JSONObject
 import redux.createStore
 import ru.itport.andrey.chatter.reducers.rootReducer
@@ -41,7 +42,7 @@ var appState = JSONObject(mapOf(
             "first_name" to "",
             "last_name" to "",
             "gender" to "",
-            "birthDte" to System.currentTimeMillis()/1000,
+            "birthDate" to System.currentTimeMillis()/1000,
             "default_room" to "",
             "profileImage" to null
     )),
@@ -66,7 +67,7 @@ var appState = JSONObject(mapOf(
             "birthDate" to 0,
             "default_room" to "",
             "profileImage" to null,
-            "rooms" to JSONObject(),
+            "rooms" to JSONArray(),
             "show_progress_indicator" to false,
             "popup_message" to "",
             "show_date_picker_dialog" to false

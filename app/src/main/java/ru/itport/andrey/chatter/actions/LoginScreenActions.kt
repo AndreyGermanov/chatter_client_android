@@ -1,5 +1,6 @@
 package ru.itport.andrey.chatter.actions
 
+import android.graphics.BitmapFactory
 import org.json.simple.JSONArray
 import org.json.simple.JSONObject
 import org.json.simple.parser.JSONParser
@@ -10,6 +11,8 @@ import ru.itport.andrey.chatter.store.LoginFormMode
 import ru.itport.andrey.chatter.store.appStore
 import ru.itport.andrey.chatter.utils.isValidEmail
 import java.util.*
+import java.util.logging.Level
+import java.util.logging.Logger
 import java.util.zip.Adler32
 import kotlin.collections.HashMap
 
@@ -314,6 +317,8 @@ class LoginScreenActions: Actions() {
                                 errors["general"] = LoginScreenLoginErrors.RESULT_ERROR_UNKNOWN
                             }
                         }
+                    } else {
+                        errors["general"] = LoginScreenLoginErrors.RESULT_ERROR_UNKNOWN
                     }
                 } else if ((rooms).count()<=0) {
                     errors["general"] = LoginScreenLoginErrors.RESULT_ERROR_UNKNOWN
@@ -387,6 +392,7 @@ class LoginScreenActions: Actions() {
          * @param data Binary data file
          */
         fun handleBinaryDataResponse(checksum:Long,data:ByteArray) {
+            val logger = Logger.getLogger("handleBinaryDataResponse")
             val pending_files = messageCenter.getPendingFilesQueue()
             val checkSumEngine = Adler32()
             checkSumEngine.update(data)
@@ -396,8 +402,12 @@ class LoginScreenActions: Actions() {
                 if (request.containsKey("action")) {
                     when (request["action"].toString()) {
                         "login_user" -> {
-                            appStore.dispatch(UserActions.changeProperty("profileImage",data))
-                            appStore.dispatch(UserProfileActions.changeProperty("profileImage",data))
+                            try {
+                                appStore.dispatch(UserActions.changeProperty("profileImage",data))
+                                appStore.dispatch(UserProfileActions.changeProperty("profileImage",data))
+                            } catch (e:Exception) {
+                                logger.log(Level.SEVERE,"Could not convert profile image '${e.message}'")
+                            }
                         }
                     }
                 }

@@ -19,8 +19,6 @@ import ru.itport.andrey.chatter.actions.UserProfileActions
  * to actions
  */
 fun UserProfileReducer(state: JSONObject, action:Any): JSONObject {
-
-
     // Reducer process
     var newState = state
     if (action is JSONObject) {

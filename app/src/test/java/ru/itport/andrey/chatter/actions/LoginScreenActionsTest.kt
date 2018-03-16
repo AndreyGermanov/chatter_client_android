@@ -5,6 +5,9 @@
 package ru.itport.andrey.chatter.actions
 
 import android.content.res.Resources
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.Rect
 import android.graphics.drawable.Drawable
 import android.support.v4.content.ContextCompat.getDrawable
 import kotlinx.android.synthetic.main.activity_profile_settings.view.*
@@ -17,7 +20,10 @@ import ru.itport.andrey.chatter.core.MessageCenter
 import ru.itport.andrey.chatter.store.AppScreens
 import ru.itport.andrey.chatter.store.LoginFormMode
 import ru.itport.andrey.chatter.store.appStore
+import java.io.File
 import java.io.FileInputStream
+import java.nio.Buffer
+import java.nio.ByteBuffer
 import java.util.zip.Adler32
 
 class LoginScreenActionsTest {
@@ -266,10 +272,20 @@ class LoginScreenActionsTest {
         pendingRequest = msgCenter.getPendingResponsesQueue().iterator().next().value as HashMap<String,Any>
         request_id = pendingRequest.get("request_id") as String
         Thread.sleep(1000)
+        var bm = BitmapFactory.Options()
+        bm.inJustDecodeBounds = false
         var stream = FileInputStream(System.getProperty("user.dir")+"/app/src/main/res/drawable/user.png")
-        var img = stream.readBytes()
-        stream = FileInputStream(System.getProperty("user.dir")+"/app/src/main/res/drawable/profile.png")
-        var fake_img = stream.readBytes()
+        stream = FileInputStream(System.getProperty("user.dir")+"/app/src/main/res/drawable/user.png")
+        var bytes = stream.readBytes()
+        println(System.getProperty("user.dir")+"/app/src/main/res/drawable/user.png")
+        var bmp = BitmapFactory.decodeByteArray(bytes,0,bytes.size,bm)
+        println(bmp)
+        var buffer = ByteBuffer.allocate(bmp.width*bmp.height)
+        var img = buffer.array()
+        println(img.size)
+        bmp = BitmapFactory.decodeFile(System.getProperty("user.dir")+"/app/src/main/res/drawable/profile.png",bm)
+        buffer = ByteBuffer.allocate(bmp.width*bmp.height)
+        var fake_img = buffer.array()
 
         var checksumEngine = Adler32()
         checksumEngine.update(img)
@@ -325,9 +341,11 @@ class LoginScreenActionsTest {
         userProfile = state["UserProfile"] as JSONObject
         assertNotNull("Should update profile with correct image",userState["profileImage"])
         assertNotNull("Should update profile with correct image",userProfile["profileImage"])
-        val profileImg = userState["profileImage"] as ByteArray
+        val profileImageBitmap = userState["profileImage"] as Bitmap
+        buffer = ByteBuffer.allocate(profileImageBitmap.width*profileImageBitmap.height)
+        val profileImage = buffer.array()
         checksumEngine.reset()
-        checksumEngine.update(profileImg)
+        checksumEngine.update(profileImage)
         assertEquals("Updated profile image must have the same checksum as image, which sent by server",checksum,checksumEngine.value)
         assertEquals("Should remove entry from pending files queue after processing",0,msgCenter.getPendingFilesQueueLength())
     }

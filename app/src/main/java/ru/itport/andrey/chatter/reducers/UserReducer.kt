@@ -18,8 +18,6 @@ import ru.itport.andrey.chatter.store.LoginFormMode
  * to actions
  */
 fun UserReducer(state: JSONObject, action:Any): JSONObject {
-
-
     // Reducer process
     var newState = state
     if (action is JSONObject) {

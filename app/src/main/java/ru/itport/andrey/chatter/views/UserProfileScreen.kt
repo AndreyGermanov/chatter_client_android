@@ -12,8 +12,11 @@ import android.graphics.Color
 import android.provider.MediaStore
 import android.support.v4.content.FileProvider
 import android.view.Gravity
+import android.widget.ArrayAdapter
 import android.widget.DatePicker
 import android.widget.LinearLayout
+import android.widget.SpinnerAdapter
+import org.json.simple.JSONArray
 import org.json.simple.JSONObject
 import ru.itport.andrey.chatter.actions.UserProfileActions
 import ru.itport.andrey.chatter.store.appStore
@@ -23,8 +26,10 @@ import ru.itport.andrey.chatter.utils.showDatePickerDialog
 import trikita.anvil.Anvil
 import trikita.anvil.BaseDSL
 import trikita.anvil.DSL.*
+import trikita.anvil.RenderableAdapter
 import trikita.anvil.RenderableView
 import java.io.File
+import java.io.FileInputStream
 import java.nio.ByteBuffer
 import java.util.*
 import java.util.logging.Level
@@ -39,7 +44,12 @@ class UserProfileScreen : BaseScreen(), DatePickerDialog.OnDateSetListener {
      * Link to temporary profile image file, which captured from camera or from
      * gallery
      */
-    lateinit var tmpImage: File
+    lateinit var tmpImageFile: File
+
+    /**
+     * Adapter, used to manage list of chat rooms for "Default room" dropdown list
+     */
+    val roomList: RenderableAdapter
 
     /**
      * Class constructor
@@ -47,6 +57,19 @@ class UserProfileScreen : BaseScreen(), DatePickerDialog.OnDateSetListener {
     init {
         val currentState = appStore.getState() as JSONObject
         state = currentState["UserProfile"] as JSONObject
+        if (state["rooms"] != null) {
+            val rooms = (state["rooms"] as JSONArray).toMutableList()
+            roomList = RenderableAdapter.withItems(rooms.toMutableList()) { index,item ->
+                val room = item as JSONObject
+                textView {
+                    text(room["name"].toString())
+                }
+            }
+        } else {
+            roomList = RenderableAdapter.withItems(MutableList<Any>(1){} ) { index,item ->
+
+            }
+        }
     }
 
     /**
@@ -87,10 +110,13 @@ class UserProfileScreen : BaseScreen(), DatePickerDialog.OnDateSetListener {
                             width(200)
                             height(200)
                             gravity(Gravity.CENTER_HORIZONTAL)
-                            if (state["profileImage"]!=null && state["profileImage"] is ByteArray) {
-                                var imageData = state["profileImage"] as ByteArray
-                                var bmp = BitmapFactory.decodeByteArray(imageData,0,imageData.size)
-                                imageBitmap(Bitmap.createScaledBitmap(bmp,200,200,false))
+                            if (state["profileImage"] != null && state["profileImage"] is ByteArray) {
+                                try {
+                                    val profileImage = state["profileImage"] as ByteArray
+                                    imageBitmap(BitmapFactory.decodeByteArray(profileImage,0,profileImage.size))
+                                } catch (e:Exception) {
+                                    logger.log(Level.SEVERE,"Could not load captured user profile image: "+e.message)
+                                }
                             } else {
                                 try {
                                     var bmp = BitmapFactory.decodeResource(this@UserProfileScreen.resources,ru.itport.andrey.chatter.R.drawable.profile)
@@ -103,11 +129,11 @@ class UserProfileScreen : BaseScreen(), DatePickerDialog.OnDateSetListener {
                                 val dialog = AlertDialog.Builder(this@UserProfileScreen)
                                 dialog.setMessage("Select image source")
                                 dialog.setNeutralButton("Camera") { dialogInterface,i ->
-                                    tmpImage = createTempImage(this@UserProfileScreen)
-                                    getProfileImage(MediaStore.ACTION_IMAGE_CAPTURE,tmpImage)
+                                    tmpImageFile = createTempImage(this@UserProfileScreen)
+                                    getProfileImage(MediaStore.ACTION_IMAGE_CAPTURE,tmpImageFile)
                                 }
                                 dialog.setPositiveButton("Gallery") { dialogInterface,i ->
-                                    tmpImage = createTempImage(this@UserProfileScreen)
+                                    tmpImageFile = createTempImage(this@UserProfileScreen)
                                     getProfileImage(Intent.ACTION_PICK)
                                 }
                                 dialog.setNegativeButton("Cancel") { dialogInterface, i ->
@@ -222,6 +248,38 @@ class UserProfileScreen : BaseScreen(), DatePickerDialog.OnDateSetListener {
                                 }
                             }
                         }
+                        tableRow {
+                            orientation(LinearLayout.HORIZONTAL)
+                            textView {
+                                text("Default room")
+                            }
+                            spinner {
+                                adapter(roomList)
+
+                                onItemSelected { ad, v, index, index2 ->
+                                    val rooms = state["rooms"] as JSONArray
+                                    val room = rooms.get(index) as JSONObject
+                                    if (room["_id"]!=state["default_room"].toString()) {
+                                        appStore.dispatch(UserProfileActions.changeProperty("default_room", room["_id"]!!))
+                                    }
+                                }
+                                if (state["default_room"]!=null) {
+                                    val default_room = state["default_room"].toString()
+                                    val rooms = state["rooms"] as JSONArray
+                                    val matched = rooms.filter {
+                                        val room = it as JSONObject
+                                        if (it!=null) {
+                                            it["_id"] == default_room
+                                        } else {
+                                            false
+                                        }
+                                    }
+                                    if (!matched.isEmpty()) {
+                                        selection(rooms.indexOf(matched[0]))
+                                    }
+                                }
+                            }
+                        }
                     }
                     tableLayout {
                         size(MATCH, BaseDSL.WRAP)
@@ -275,28 +333,13 @@ class UserProfileScreen : BaseScreen(), DatePickerDialog.OnDateSetListener {
      */
     override fun onActivityResult(requestCode:Int,resultCode:Int,data:Intent) {
         if (resultCode == RESULT_OK) {
-            val targetW = 200
-            val targetH = 200
 
-            var mCurrentPhotoPath = tmpImage.absolutePath
-
-            val bmOptions = BitmapFactory.Options()
-            bmOptions.inJustDecodeBounds = true
-            BitmapFactory.decodeFile(mCurrentPhotoPath, bmOptions)
-            val photoW = bmOptions.outWidth
-            val photoH = bmOptions.outHeight
-
-            val scaleFactor = Math.min(photoW / targetW, photoH / targetH)
-            bmOptions.inJustDecodeBounds = false
-            bmOptions.inSampleSize = scaleFactor
-
-            val bitmap = BitmapFactory.decodeFile(mCurrentPhotoPath, bmOptions)
-            val buffer = ByteBuffer.allocate(bitmap.byteCount)
-            var bytes = ByteArray(bitmap.byteCount)
-            bitmap.copyPixelsToBuffer(buffer)
-            buffer.rewind()
-            buffer.get(bytes)
-            appStore.dispatch(UserProfileActions.changeProperty("profileImage",bytes))
+            val bmp = BitmapFactory.decodeFile(tmpImageFile.absolutePath)
+            val byteBuffer = ByteBuffer.allocate(bmp.width*bmp.height)
+            Bitmap.createScaledBitmap(bmp, 200, 200, false).copyPixelsToBuffer(byteBuffer)
+            if (bmp!=null) {
+                appStore.dispatch(UserProfileActions.changeProperty("profileImage", byteBuffer.array()))
+            }
         }
     }
 

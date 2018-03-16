@@ -564,5 +564,4 @@ class MessageCenter : Service() {
         cleanPendingResponsesQueue()
         cleanPendingFilesQueue()
     }
-
 }
