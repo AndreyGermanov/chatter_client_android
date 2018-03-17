@@ -23,7 +23,11 @@ fun UserReducer(state: JSONObject, action:Any): JSONObject {
     if (action is JSONObject) {
         if (action["type"] is UserActions.UserActionTypes) {
             when (action["type"] as UserActions.UserActionTypes) {
-                UserActions.UserActionTypes.CHANGE_PROPERTY -> newState[action["property_name"].toString()] = action["property_value"]
+                UserActions.UserActionTypes.CHANGE_PROPERTY -> {
+                    if (newState.containsKey(action["property_name"].toString())) {
+                        newState[action["property_name"].toString()] = action["property_value"]
+                    }
+                }
             }
         }
     }

@@ -94,7 +94,7 @@ class LoginScreenActions: Actions() {
         /**
          * Link to MessageCenter, to send commands to server
          */
-        lateinit var messageCenter: MessageCenter
+        override lateinit var messageCenter: MessageCenter
 
         /**
          * Action switches mode of LoginWindow from "Login" to "Register" and
@@ -280,7 +280,7 @@ class LoginScreenActions: Actions() {
                 appStore.dispatch(LoginScreenActions.changeProperty("show_progress_indicator",false))
                 appStore.dispatch(LoginScreenActions.changeProperty("popup_message",LoginScreenRegisterErrors.RESULT_OK.getMessage()))
                 appStore.dispatch(LoginScreenActions.changeProperty("mode", LoginFormMode.LOGIN))
-            } else {
+            } else if ("error" == response["status"] as String) {
                 appStore.dispatch(LoginScreenActions.changeProperty("show_progress_indicator",false))
                 val errors = JSONObject()
                 try {
@@ -327,10 +327,13 @@ class LoginScreenActions: Actions() {
                     appStore.dispatch(LoginScreenActions.changeProperty("errors",errors))
                     appStore.dispatch(LoginScreenActions.changeProperty("mode", LoginFormMode.LOGIN))
                 } else {
-                    println(response)
                     appStore.dispatch(UserActions.changeProperty("isLogin", true))
                     appStore.dispatch(UserActions.changeProperty("user_id", response["user_id"].toString()))
                     appStore.dispatch(UserActions.changeProperty("session_id", response["session_id"].toString()))
+                    appStore.dispatch(UserActions.changeProperty("login", response["login"].toString()))
+                    appStore.dispatch(UserProfileActions.changeProperty("login", response["login"].toString()))
+                    appStore.dispatch(UserActions.changeProperty("email", response["email"].toString()))
+                    appStore.dispatch(UserProfileActions.changeProperty("email", response["email"].toString()))
                     if (response["first_name"] != null) {
                         appStore.dispatch(UserActions.changeProperty("first_name", response["first_name"].toString()))
                         appStore.dispatch(UserProfileActions.changeProperty("first_name", response["first_name"].toString()))
@@ -373,7 +376,7 @@ class LoginScreenActions: Actions() {
                         messageCenter.addPendingFile(response["checksum"].toString().toLong(),request)
                     }
                 }
-            } else {
+            } else if ("error" == response["status"] as String) {
                 try {
                     errors["general"] = LoginScreenLoginErrors.valueOf(response["status_code"].toString())
                 } catch (e:Exception) {

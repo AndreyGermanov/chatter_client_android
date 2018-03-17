@@ -6,7 +6,6 @@ import org.json.simple.JSONObject
 import redux.api.Reducer
 import ru.itport.andrey.chatter.actions.Actions
 import ru.itport.andrey.chatter.store.AppScreens
-import ru.itport.andrey.chatter.store.oldAppState
 
 /**
  * Core reducer, which applies changes dispatched to store by actions of all detail

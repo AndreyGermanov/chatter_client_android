@@ -21,6 +21,8 @@ class MessageCenterTest {
         override fun handleResponse(request_id:String,response:Any) {
 
         }
+
+        override lateinit var messageCenter: MessageCenter
     }
 
     val msgCenter: MessageCenter = MessageCenter()

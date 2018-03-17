@@ -1,6 +1,7 @@
 package ru.itport.andrey.chatter.actions
 
 import org.json.simple.JSONObject
+import ru.itport.andrey.chatter.core.MessageCenter
 import ru.itport.andrey.chatter.core.MessageCenterResponseReceiver
 import ru.itport.andrey.chatter.store.AppScreens
 
@@ -32,6 +33,11 @@ open class Actions {
     }
 
     companion object: MessageCenterResponseReceiver {
+
+        /**
+         * Link to MessageCenter, to send commands to server
+         */
+        override lateinit var messageCenter: MessageCenter
 
         /**
          * Action which changes current application screen

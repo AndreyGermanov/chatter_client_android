@@ -248,7 +248,7 @@ class LoginScreenActionsTest {
         Thread.sleep(2000)
         pendingRequest = msgCenter.getPendingResponsesQueue().iterator().next().value as HashMap<String,Any>
         request_id = pendingRequest.get("request_id") as String
-        msg = """{"request_id":"${request_id}","status":"ok","status_code":"RESULT_OK","action":"login_user","user_id":"u1","session_id":"s1","default_room":"54321","first_name":"Bob","last_name":"Johnson",
+        msg = """{"request_id":"${request_id}","status":"ok","status_code":"RESULT_OK","action":"login_user","user_id":"u1","session_id":"s1","login":"test","email":"test@test.com","default_room":"54321","first_name":"Bob","last_name":"Johnson",
             |"birthDate":1234567890,"gender":"M","rooms":[{"_id":"123456","name":"Room 1"},{"_id":"54321","name":"Room 2"}]}""".trimMargin()
         msgCenter.messageListener.onTextMessage(null,msg)
         state = appStore.state as JSONObject
@@ -257,11 +257,15 @@ class LoginScreenActionsTest {
         assertTrue("Should set 'IsLogin' of User state to true",userState["isLogin"] as Boolean)
         assertEquals("Should move to 'Chat' screen if default room is set",state["current_activity"] as AppScreens,AppScreens.CHAT)
         assertEquals("Should set correct user_id to User","u1",userState["user_id"] as String)
+        assertEquals("Should set correct login to User","test",userState["login"] as String)
+        assertEquals("Should set correct email to User","test@test.com",userState["email"] as String)
         assertEquals("Should set correct session_id to User","s1",userState["session_id"] as String)
         assertEquals("Should set correct first_name to User","Bob",userState["first_name"] as String)
         assertEquals("Should set correct last_name to User","Johnson",userState["last_name"] as String)
         assertEquals("Should set correct gender to User","M", userState["gender"] as String)
         assertEquals("Should set correct birthDate to User",1234567890,userState["birthDate"] as Int)
+        assertEquals("Should set correct login to User Profile","test",userProfile["login"] as String)
+        assertEquals("Should set correct email to User Profile","test@test.com",userProfile["email"] as String)
         assertEquals("Should set correct first_name to User Profile","Bob",userProfile["first_name"] as String)
         assertEquals("Should set correct last_name to User Profile","Johnson",userProfile["last_name"] as String)
         assertEquals("Should set correct gender to User Profile","M",userProfile["gender"] as String)
@@ -274,10 +278,9 @@ class LoginScreenActionsTest {
         Thread.sleep(1000)
         var bm = BitmapFactory.Options()
         bm.inJustDecodeBounds = false
+
         var stream = FileInputStream(System.getProperty("user.dir")+"/app/src/main/res/drawable/user.png")
-        stream = FileInputStream(System.getProperty("user.dir")+"/app/src/main/res/drawable/user.png")
         var bytes = stream.readBytes()
-        println(System.getProperty("user.dir")+"/app/src/main/res/drawable/user.png")
         var bmp = BitmapFactory.decodeByteArray(bytes,0,bytes.size,bm)
         println(bmp)
         var buffer = ByteBuffer.allocate(bmp.width*bmp.height)

@@ -12,24 +12,23 @@ import android.graphics.Color
 import android.provider.MediaStore
 import android.support.v4.content.FileProvider
 import android.view.Gravity
-import android.widget.ArrayAdapter
 import android.widget.DatePicker
 import android.widget.LinearLayout
-import android.widget.SpinnerAdapter
 import org.json.simple.JSONArray
 import org.json.simple.JSONObject
+import ru.itport.andrey.chatter.actions.SmartEnum
 import ru.itport.andrey.chatter.actions.UserProfileActions
+import ru.itport.andrey.chatter.core.MessageCenter
+import ru.itport.andrey.chatter.store.AppScreens
 import ru.itport.andrey.chatter.store.appStore
-import ru.itport.andrey.chatter.utils.createTempImage
-import ru.itport.andrey.chatter.utils.hideSoftKeyboard
-import ru.itport.andrey.chatter.utils.showDatePickerDialog
+import ru.itport.andrey.chatter.store.getStateOf
+import ru.itport.andrey.chatter.utils.*
 import trikita.anvil.Anvil
 import trikita.anvil.BaseDSL
 import trikita.anvil.DSL.*
 import trikita.anvil.RenderableAdapter
 import trikita.anvil.RenderableView
 import java.io.File
-import java.io.FileInputStream
 import java.nio.ByteBuffer
 import java.util.*
 import java.util.logging.Level
@@ -73,15 +72,54 @@ class UserProfileScreen : BaseScreen(), DatePickerDialog.OnDateSetListener {
     }
 
     /**
+     * Handler which executed when activity connects to MessageCenter WebSocket service
+     * Used to provide link to service for Action creator, used to send commands and update state
+     * of application
+     *
+     * @param messageCenter Link to MessageCenter service object
+     */
+    override fun onMessageCenterConnected(messageCenter: MessageCenter) {
+        super.onMessageCenterConnected(messageCenter)
+        UserProfileActions.messageCenter = messageCenter
+    }
+
+    /**
      * Function updates user interface on application state update
      */
     inner class UpdateUI: Runnable {
         override fun run() {
-            globalState = appStore.getState() as JSONObject
+            globalState = appStore.state as JSONObject
+            state = getStateOf("UserProfile")!!
             if (state["show_date_picker_dialog"] != null) {
                 if (state["show_date_picker_dialog"] as Boolean) {
                     showDatePickerDialog(Date(state["birthDate"].toString().toLong()*1000), this@UserProfileScreen)
                     appStore.dispatch(UserProfileActions.changeProperty("show_date_picker_dialog", false))
+                }
+            }
+            if (state["errors"] != null) {
+                val errors = state["errors"] as JSONObject
+                if (errors["general"] != null) {
+                    if (errors["general"] is SmartEnum) {
+                        val generalError = errors["general"] as SmartEnum
+                        showAlertDialog("Alert", generalError.getMessage(), this@UserProfileScreen)
+                    }
+                    errors["general"] = null
+                    appStore.dispatch(UserProfileActions.changeProperty("errors", errors))
+                }
+                if (state["show_progress_indicator"] as Boolean && progressBarDialog==null) {
+                    progressBarDialog = showProgressBar(this@UserProfileScreen)
+                    progressBarDialog!!.show()
+                } else if (!(state["show_progress_indicator"] as Boolean) && progressBarDialog != null) {
+                    progressBarDialog!!.cancel()
+                    progressBarDialog = null
+                }
+                if ((globalState["current_activity"] as AppScreens) != AppScreens.USER_PROFILE) {
+                    var intent = Intent()
+                    when (globalState["current_activity"] as AppScreens) {
+                        AppScreens.CHAT -> intent = Intent(this@UserProfileScreen,ChatScreen::class.java)
+                    }
+                    startActivity(intent)
+                    finish()
                 }
             }
             Anvil.render()
@@ -94,7 +132,7 @@ class UserProfileScreen : BaseScreen(), DatePickerDialog.OnDateSetListener {
     override fun drawView(): RenderableView {
         val logger = Logger.getLogger("UserProfileScreen.drawView")
         subscription = appStore.subscribe {
-            this.runOnUiThread(UpdateUI())
+            this@UserProfileScreen.runOnUiThread(UpdateUI())
         }
         return object: RenderableView(this) {
             override fun view() {
@@ -145,6 +183,36 @@ class UserProfileScreen : BaseScreen(), DatePickerDialog.OnDateSetListener {
                         }
                     }
                     tableLayout {
+                        tableRow {
+                            orientation(LinearLayout.HORIZONTAL)
+                            textView {
+                                text("Password")
+                            }
+                            editText {
+                                text(state["password"].toString())
+                                onTextChanged { text -> appStore.dispatch(UserProfileActions.changeProperty("password",text))}
+                            }
+                        }
+                        if (errors["password"]!=null && errors["password"] is UserProfileActions.UserProfileErrors) {
+                            val msg = (errors["password"] as UserProfileActions.UserProfileErrors).getMessage()
+                            tableRow {
+                                orientation(LinearLayout.HORIZONTAL)
+                                textView {
+                                    text(msg)
+                                    textColor(Color.RED)
+                                }
+                            }
+                        }
+                        tableRow {
+                            orientation(LinearLayout.HORIZONTAL)
+                            textView {
+                                text("Confirm Password")
+                            }
+                            editText {
+                                text(state["confirm_password"].toString())
+                                onTextChanged { text -> appStore.dispatch(UserProfileActions.changeProperty("confirm_password",text))}
+                            }
+                        }
                         tableRow {
                             orientation(LinearLayout.HORIZONTAL)
                             textView {
@@ -280,6 +348,16 @@ class UserProfileScreen : BaseScreen(), DatePickerDialog.OnDateSetListener {
                                 }
                             }
                         }
+                        if (errors["default_room"]!=null && errors["default_room"] is UserProfileActions.UserProfileErrors) {
+                            val msg = (errors["default_room"] as UserProfileActions.UserProfileErrors).getMessage()
+                            tableRow {
+                                orientation(LinearLayout.HORIZONTAL)
+                                textView {
+                                    text(msg)
+                                    textColor(Color.RED)
+                                }
+                            }
+                        }
                     }
                     tableLayout {
                         size(MATCH, BaseDSL.WRAP)
@@ -287,7 +365,7 @@ class UserProfileScreen : BaseScreen(), DatePickerDialog.OnDateSetListener {
                             size(MATCH, BaseDSL.WRAP)
                             text("UPDATE")
                             onClick { v ->
-
+                                UserProfileActions.update()
                             }
                         }
                     }
@@ -297,7 +375,7 @@ class UserProfileScreen : BaseScreen(), DatePickerDialog.OnDateSetListener {
                             size(MATCH, BaseDSL.WRAP)
                             text("CANCEL")
                             onClick { v ->
-
+                                UserProfileActions.cancel()
                             }
                         }
                     }

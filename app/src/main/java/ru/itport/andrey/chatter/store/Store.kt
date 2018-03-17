@@ -6,6 +6,7 @@ package ru.itport.andrey.chatter.store
 import org.json.simple.JSONArray
 import org.json.simple.JSONObject
 import redux.createStore
+
 import ru.itport.andrey.chatter.reducers.rootReducer
 
 
@@ -32,51 +33,69 @@ enum class AppScreens {
  * consistent UI
  */
 var appState = JSONObject(mapOf(
+
+    // Current screen of application
     "current_activity" to AppScreens.LOGIN_FORM,
+
+    // Data of LOGIN_FORM screen
+    "LoginForm" to JSONObject(mapOf(
+        "mode" to LoginFormMode.LOGIN,
+        "login" to "",
+        "email" to "",
+        "password" to "",
+        "confirm_password" to "",
+        "show_progress_indicator" to false,
+        "popup_message" to "",
+        "errors" to JSONObject()
+
+    )),
+
+    // Data of USER_PROFILE screen
+    "UserProfile" to JSONObject(mapOf(
+        "errors" to JSONObject(),
+        "login" to "",
+        "email" to "",
+        "password" to "",
+        "confirm_password" to "",
+        "first_name" to "",
+        "last_name" to "",
+        "gender" to "",
+        "birthDate" to 0,
+        "default_room" to "",
+        "profileImage" to null,
+        "rooms" to JSONArray(),
+        "show_progress_indicator" to false,
+        "popup_message" to "",
+        "show_date_picker_dialog" to false
+    )),
+
+    // Data of loaded user
     "User" to JSONObject(mapOf(
             "user_id" to "",
             "session_id" to "",
             "isLogin" to false,
             "login" to "",
             "email" to "",
+
             "first_name" to "",
             "last_name" to "",
             "gender" to "",
             "birthDate" to System.currentTimeMillis()/1000,
             "default_room" to "",
             "profileImage" to null
-    )),
-    "LoginForm" to JSONObject(mapOf(
-            "mode" to LoginFormMode.LOGIN,
-            "login" to "",
-            "email" to "",
-            "password" to "",
-            "confirm_password" to "",
-            "show_progress_indicator" to false,
-            "popup_message" to "",
-            "errors" to JSONObject()
-    )),"UserProfile" to JSONObject(mapOf(
-            "errors" to JSONObject(),
-            "login" to "",
-            "email" to "",
-            "password" to "",
-            "confirm_password" to "",
-            "first_name" to "",
-            "last_name" to "",
-            "gender" to "",
-            "birthDate" to 0,
-            "default_room" to "",
-            "profileImage" to null,
-            "rooms" to JSONArray(),
-            "show_progress_indicator" to false,
-            "popup_message" to "",
-            "show_date_picker_dialog" to false
     ))
 ))
-
-var oldAppState = appState.clone()
 
 /**
  * Redux store for Application state
  */
 val appStore = createStore(rootReducer,appState)
+
+fun getStateOf(section:String): JSONObject? {
+    val state = appStore.state
+    if (state.containsKey(section)) {
+        return state[section] as JSONObject
+    } else {
+        return null
+    }
+}

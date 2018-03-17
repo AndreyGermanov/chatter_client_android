@@ -68,7 +68,7 @@ open class BaseScreen : Activity() {
             if (!messageCenterConnected) {
                 val binder = service as MessageCenter.LocalBinder
                 messageCenter = binder.getService()
-                LoginScreenActions.messageCenter = messageCenter
+                this@BaseScreen.onMessageCenterConnected(messageCenter)
                 messageCenterConnected = true
             }
         }
@@ -123,5 +123,15 @@ open class BaseScreen : Activity() {
         return object: RenderableView(this) {
             override fun view() {}
         }
+    }
+
+    /**
+     * Function used in derived classes to set messageCenter object to appropriate action creator
+     * when activity connected to MessageCenter service
+     *
+     * @param messageCenter messageCenter service instance
+     */
+    open fun onMessageCenterConnected(messageCenter:MessageCenter) {
+
     }
 }

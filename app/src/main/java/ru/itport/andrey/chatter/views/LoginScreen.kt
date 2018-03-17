@@ -14,6 +14,7 @@ import org.json.simple.JSONObject
 import redux.api.Store
 import ru.itport.andrey.chatter.actions.LoginScreenActions
 import ru.itport.andrey.chatter.actions.SmartEnum
+import ru.itport.andrey.chatter.core.MessageCenter
 import ru.itport.andrey.chatter.store.AppScreens
 import ru.itport.andrey.chatter.store.LoginFormMode
 import ru.itport.andrey.chatter.store.appStore
@@ -38,6 +39,18 @@ class LoginScreen : BaseScreen() {
     init {
         globalState = appStore.getState() as JSONObject
         state = globalState["LoginForm"] as JSONObject
+    }
+
+    /**
+     * Handler which executed when activity connects to MessageCenter WebSocket service
+     * Used to provide link to service for Action creator, used to send commands and update state
+     * of application
+     *
+     * @param messageCenter Link to MessageCenter service object
+     */
+    override fun onMessageCenterConnected(messageCenter: MessageCenter) {
+        super.onMessageCenterConnected(messageCenter)
+        LoginScreenActions.messageCenter = messageCenter
     }
 
     /**

@@ -26,6 +26,11 @@ interface MessageCenterResponseReceiver {
      * to request, sent by this object
      */
     fun handleResponse(request_id:String,response:Any)
+
+    /**
+     * Link to MessageCenter, to send commands to server
+     */
+    var messageCenter: MessageCenter
 }
 
 /**
@@ -214,7 +219,7 @@ class MessageCenter : Service() {
      * Timeout of pending response. If timeout exceeded,
      * request will be removed from queue by background job
      */
-    private val PENDING_RESPONSES_QUEUE_TIMEOUT = 60
+    var PENDING_RESPONSES_QUEUE_TIMEOUT = 60
 
     /**
      * Queue of files, which should be transferred from server e.g. client already received
@@ -365,14 +370,20 @@ class MessageCenter : Service() {
                                     "timestamp" to System.currentTimeMillis() / 1000)
                     )
                     val json_request = JSONObject()
+                    val filesToSend = ArrayList<ByteArray>()
                     for ((index, value) in request) {
-                        if (index!="sender") {
+                        if (value is ByteArray) {
+                            filesToSend.add(value)
+                        } else if (index!="sender") {
                             json_request[index] = value
                         }
                     }
                     result.add(toJSONString(json_request))
                     launch {
                         ws.sendText(toJSONString(json_request))
+                        filesToSend.iterator().forEach {
+                            ws.sendBinary(it)
+                        }
                     }
                     requests_queue.remove(index)
                 } catch (e:Exception) {

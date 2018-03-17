@@ -24,7 +24,15 @@ fun UserProfileReducer(state: JSONObject, action:Any): JSONObject {
     if (action is JSONObject) {
         if (action["type"] is UserProfileActions.UserProfileActionTypes) {
             when (action["type"] as UserProfileActions.UserProfileActionTypes) {
-                UserProfileActions.UserProfileActionTypes.CHANGE_PROPERTY -> newState[action["property_name"].toString()] = action["property_value"]
+                UserProfileActions.UserProfileActionTypes.CHANGE_PROPERTY ->{
+                    if (newState.containsKey(action["property_name"].toString())) {
+                        if (action["property_value"]!=null) {
+                            newState[action["property_name"].toString()] = action["property_value"]
+                        } else {
+                            newState[action["property_name"].toString()] = null
+                        }
+                    }
+                }
             }
         }
     }
