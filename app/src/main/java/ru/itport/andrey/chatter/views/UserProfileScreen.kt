@@ -29,6 +29,7 @@ import trikita.anvil.DSL.*
 import trikita.anvil.RenderableAdapter
 import trikita.anvil.RenderableView
 import java.io.File
+import java.io.FileInputStream
 import java.nio.ByteBuffer
 import java.util.*
 import java.util.logging.Level
@@ -139,239 +140,243 @@ class UserProfileScreen : BaseScreen(), DatePickerDialog.OnDateSetListener {
         return object: RenderableView(this) {
             override fun view() {
                 val errors = state["errors"] as JSONObject
+                scrollView {
+                    size(MATCH,MATCH)
                 linearLayout {
                     onClick {
                         hideSoftKeyboard(this@UserProfileScreen)
                     }
                     size(MATCH,MATCH)
                     orientation(LinearLayout.VERTICAL)
-                    tableLayout {
-                        imageView {
-                            width(200)
-                            height(200)
-                            gravity(Gravity.CENTER_HORIZONTAL)
-                            if (state["profileImage"] != null && state["profileImage"] is ByteArray) {
-                                try {
-                                    val profileImage = state["profileImage"] as ByteArray
-                                    imageBitmap(BitmapFactory.decodeByteArray(profileImage,0,profileImage.size))
-                                } catch (e:Exception) {
-                                    logger.log(Level.SEVERE,"Could not load captured user profile image: "+e.message)
-                                }
-                            } else {
-                                try {
-                                    var bmp = BitmapFactory.decodeResource(this@UserProfileScreen.resources,ru.itport.andrey.chatter.R.drawable.profile)
-                                    imageBitmap(Bitmap.createScaledBitmap(bmp,200,200,false))
-                                } catch (e:Exception) {
-                                    logger.log(Level.SEVERE,"Could not load default user profile image: "+e.message)
-                                }
-                            }
-                            onClick {
-                                val dialog = AlertDialog.Builder(this@UserProfileScreen)
-                                dialog.setMessage("Select image source")
-                                dialog.setNeutralButton("Camera") { dialogInterface,i ->
-                                    tmpImageFile = createTempImage(this@UserProfileScreen)
-                                    getProfileImage(MediaStore.ACTION_IMAGE_CAPTURE,tmpImageFile)
-                                }
-                                dialog.setPositiveButton("Gallery") { dialogInterface,i ->
-                                    tmpImageFile = createTempImage(this@UserProfileScreen)
-                                    getProfileImage(Intent.ACTION_PICK)
-                                }
-                                dialog.setNegativeButton("Cancel") { dialogInterface, i ->
 
-                                }
-                                dialog.create().show()
-                            }
-
-                        }
-                    }
-                    tableLayout {
-                        tableRow {
-                            orientation(LinearLayout.HORIZONTAL)
-                            textView {
-                                text("Password")
-                            }
-                            editText {
-                                text(state["password"].toString())
-                                onTextChanged { text -> appStore.dispatch(UserProfileActions.changeProperty("password",text))}
-                            }
-                        }
-                        if (errors["password"]!=null && errors["password"] is UserProfileActions.UserProfileErrors) {
-                            val msg = (errors["password"] as UserProfileActions.UserProfileErrors).getMessage()
-                            tableRow {
-                                orientation(LinearLayout.HORIZONTAL)
-                                textView {
-                                    text(msg)
-                                    textColor(Color.RED)
-                                }
-                            }
-                        }
-                        tableRow {
-                            orientation(LinearLayout.HORIZONTAL)
-                            textView {
-                                text("Confirm Password")
-                            }
-                            editText {
-                                text(state["confirm_password"].toString())
-                                onTextChanged { text -> appStore.dispatch(UserProfileActions.changeProperty("confirm_password",text))}
-                            }
-                        }
-                        tableRow {
-                            orientation(LinearLayout.HORIZONTAL)
-                            textView {
-                                text("First name")
-                            }
-                            editText {
-                                text(state["first_name"].toString())
-                                onTextChanged { text -> appStore.dispatch(UserProfileActions.changeProperty("first_name",text))}
-                            }
-                        }
-                        if (errors["first_name"]!=null && errors["first_name"] is UserProfileActions.UserProfileErrors) {
-                            val msg = (errors["first_name"] as UserProfileActions.UserProfileErrors).getMessage()
-                            tableRow {
-                                orientation(LinearLayout.HORIZONTAL)
-                                textView {
-                                    text(msg)
-                                    textColor(Color.RED)
-                                }
-                            }
-                        }
-                        tableRow {
-                            orientation(LinearLayout.HORIZONTAL)
-                            textView {
-                                text("Last name")
-                            }
-                            editText {
-                                text(state["last_name"].toString())
-                                onTextChanged { text -> appStore.dispatch(UserProfileActions.changeProperty("last_name",text))}
-                            }
-                        }
-                        if (errors["last_name"]!=null && errors["last_name"] is UserProfileActions.UserProfileErrors) {
-                            val msg = (errors["last_name"] as UserProfileActions.UserProfileErrors).getMessage()
-                            tableRow {
-                                orientation(LinearLayout.HORIZONTAL)
-                                textView {
-                                    text(msg)
-                                    textColor(Color.RED)
-                                }
-                            }
-                        }
-                        tableRow {
-                            orientation(LinearLayout.HORIZONTAL)
-                            textView {
-                                text("Gender")
-                            }
-                            radioGroup{
-                                orientation(LinearLayout.HORIZONTAL)
-                                radioButton {
-                                    checked(state["gender"].toString() == "M")
-                                    text("M")
-                                    onClick {
-                                        appStore.dispatch(UserProfileActions.changeProperty("gender","M"))
+                        tableLayout {
+                            imageView {
+                                width(200)
+                                height(200)
+                                gravity(Gravity.CENTER_HORIZONTAL)
+                                if (state["profileImage"] != null && state["profileImage"] is ByteArray) {
+                                    try {
+                                        val profileImage = state["profileImage"] as ByteArray
+                                        imageBitmap(BitmapFactory.decodeByteArray(profileImage, 0, profileImage.size))
+                                    } catch (e: Exception) {
+                                        logger.log(Level.SEVERE, "Could not load captured user profile image: " + e.message)
+                                    }
+                                } else {
+                                    try {
+                                        var bmp = BitmapFactory.decodeResource(this@UserProfileScreen.resources, ru.itport.andrey.chatter.R.drawable.profile)
+                                        imageBitmap(Bitmap.createScaledBitmap(bmp, 200, 200, false))
+                                    } catch (e: Exception) {
+                                        logger.log(Level.SEVERE, "Could not load default user profile image: " + e.message)
                                     }
                                 }
-                                radioButton {
-                                    checked(state["gender"].toString() == "F")
-                                    text("F")
-                                    onClick {
-                                        appStore.dispatch(UserProfileActions.changeProperty("gender","F"))
-                                    }
-                                }
-                            }
-                        }
-                        if (errors["gender"]!=null && errors["gender"] is UserProfileActions.UserProfileErrors) {
-                            val msg = (errors["gender"] as UserProfileActions.UserProfileErrors).getMessage()
-                            tableRow {
-                                orientation(LinearLayout.HORIZONTAL)
-                                textView {
-                                    text(msg)
-                                    textColor(Color.RED)
-                                }
-                            }
-                        }
-                        tableRow {
-                            orientation(LinearLayout.HORIZONTAL)
-                            textView {
-                                text("Date of Birth")
-                            }
-                            textView {
-                                var value = ""
-                                textSize(42f)
-                                textColor(Color.BLACK)
-                                try {
-                                    value = android.text.format.DateFormat.format("MM/dd/yyyy", Date(state["birthDate"].toString().toLong()*1000)).toString()
-                                } catch (e:Exception) {
-                                    logger.log(Level.INFO,"Could not format BirthDate")
-                                }
-                                text(value)
                                 onClick {
-                                    appStore.dispatch(UserProfileActions.changeProperty("show_date_picker_dialog",true))
+                                    val dialog = AlertDialog.Builder(this@UserProfileScreen)
+                                    dialog.setMessage("Select image source")
+                                    dialog.setNeutralButton("Camera") { dialogInterface, i ->
+                                        tmpImageFile = createTempImage(this@UserProfileScreen)
+                                        getProfileImage(MediaStore.ACTION_IMAGE_CAPTURE, tmpImageFile)
+                                    }
+                                    dialog.setPositiveButton("Gallery") { dialogInterface, i ->
+                                        tmpImageFile = createTempImage(this@UserProfileScreen)
+                                        getProfileImage(Intent.ACTION_PICK)
+                                    }
+                                    dialog.setNegativeButton("Cancel") { dialogInterface, i ->
+
+                                    }
+                                    dialog.create().show()
                                 }
+
                             }
                         }
-                        if (errors["birthDate"]!=null && errors["birthDate"] is UserProfileActions.UserProfileErrors) {
-                            val msg = (errors["birthDate"] as UserProfileActions.UserProfileErrors).getMessage()
+                        tableLayout {
                             tableRow {
                                 orientation(LinearLayout.HORIZONTAL)
                                 textView {
-                                    text(msg)
-                                    textColor(Color.RED)
+                                    text("Password")
+                                }
+                                editText {
+                                    text(state["password"].toString())
+                                    onTextChanged { text -> appStore.dispatch(UserProfileActions.changeProperty("password", text)) }
                                 }
                             }
-                        }
-                        tableRow {
-                            orientation(LinearLayout.HORIZONTAL)
-                            textView {
-                                text("Default room")
+                            if (errors["password"] != null && errors["password"] is UserProfileActions.UserProfileErrors) {
+                                val msg = (errors["password"] as UserProfileActions.UserProfileErrors).getMessage()
+                                tableRow {
+                                    orientation(LinearLayout.HORIZONTAL)
+                                    textView {
+                                        text(msg)
+                                        textColor(Color.RED)
+                                    }
+                                }
                             }
-                            spinner {
-                                adapter(roomList)
-
-
-                                if (state["default_room"]!=null) {
-                                    val default_room = state["default_room"].toString()
-                                    val rooms = state["rooms"] as JSONArray
-                                    val matched = rooms.filter {
-                                        val room = it as JSONObject
-                                        if (it!=null) {
-                                            it["_id"] == default_room
-                                        } else {
-                                            false
+                            tableRow {
+                                orientation(LinearLayout.HORIZONTAL)
+                                textView {
+                                    text("Confirm Password")
+                                }
+                                editText {
+                                    text(state["confirm_password"].toString())
+                                    onTextChanged { text -> appStore.dispatch(UserProfileActions.changeProperty("confirm_password", text)) }
+                                }
+                            }
+                            tableRow {
+                                orientation(LinearLayout.HORIZONTAL)
+                                textView {
+                                    text("First name")
+                                }
+                                editText {
+                                    text(state["first_name"].toString())
+                                    onTextChanged { text -> appStore.dispatch(UserProfileActions.changeProperty("first_name", text)) }
+                                }
+                            }
+                            if (errors["first_name"] != null && errors["first_name"] is UserProfileActions.UserProfileErrors) {
+                                val msg = (errors["first_name"] as UserProfileActions.UserProfileErrors).getMessage()
+                                tableRow {
+                                    orientation(LinearLayout.HORIZONTAL)
+                                    textView {
+                                        text(msg)
+                                        textColor(Color.RED)
+                                    }
+                                }
+                            }
+                            tableRow {
+                                orientation(LinearLayout.HORIZONTAL)
+                                textView {
+                                    text("Last name")
+                                }
+                                editText {
+                                    text(state["last_name"].toString())
+                                    onTextChanged { text -> appStore.dispatch(UserProfileActions.changeProperty("last_name", text)) }
+                                }
+                            }
+                            if (errors["last_name"] != null && errors["last_name"] is UserProfileActions.UserProfileErrors) {
+                                val msg = (errors["last_name"] as UserProfileActions.UserProfileErrors).getMessage()
+                                tableRow {
+                                    orientation(LinearLayout.HORIZONTAL)
+                                    textView {
+                                        text(msg)
+                                        textColor(Color.RED)
+                                    }
+                                }
+                            }
+                            tableRow {
+                                orientation(LinearLayout.HORIZONTAL)
+                                textView {
+                                    text("Gender")
+                                }
+                                radioGroup {
+                                    orientation(LinearLayout.HORIZONTAL)
+                                    radioButton {
+                                        checked(state["gender"].toString() == "M")
+                                        text("M")
+                                        onClick {
+                                            appStore.dispatch(UserProfileActions.changeProperty("gender", "M"))
                                         }
                                     }
-                                    if (!matched.isEmpty()) {
-                                        selection(rooms.indexOf(matched[0]))
+                                    radioButton {
+                                        checked(state["gender"].toString() == "F")
+                                        text("F")
+                                        onClick {
+                                            appStore.dispatch(UserProfileActions.changeProperty("gender", "F"))
+                                        }
+                                    }
+                                }
+                            }
+                            if (errors["gender"] != null && errors["gender"] is UserProfileActions.UserProfileErrors) {
+                                val msg = (errors["gender"] as UserProfileActions.UserProfileErrors).getMessage()
+                                tableRow {
+                                    orientation(LinearLayout.HORIZONTAL)
+                                    textView {
+                                        text(msg)
+                                        textColor(Color.RED)
+                                    }
+                                }
+                            }
+                            tableRow {
+                                orientation(LinearLayout.HORIZONTAL)
+                                textView {
+                                    text("Date of Birth")
+                                }
+                                textView {
+                                    var value = ""
+                                    textSize(42f)
+                                    textColor(Color.BLACK)
+                                    try {
+                                        value = android.text.format.DateFormat.format("MM/dd/yyyy", Date(state["birthDate"].toString().toLong() * 1000)).toString()
+                                    } catch (e: Exception) {
+                                        logger.log(Level.INFO, "Could not format BirthDate")
+                                    }
+                                    text(value)
+                                    onClick {
+                                        appStore.dispatch(UserProfileActions.changeProperty("show_date_picker_dialog", true))
+                                    }
+                                }
+                            }
+                            if (errors["birthDate"] != null && errors["birthDate"] is UserProfileActions.UserProfileErrors) {
+                                val msg = (errors["birthDate"] as UserProfileActions.UserProfileErrors).getMessage()
+                                tableRow {
+                                    orientation(LinearLayout.HORIZONTAL)
+                                    textView {
+                                        text(msg)
+                                        textColor(Color.RED)
+                                    }
+                                }
+                            }
+                            tableRow {
+                                orientation(LinearLayout.HORIZONTAL)
+                                textView {
+                                    text("Default room")
+                                }
+                                spinner {
+                                    adapter(roomList)
+
+
+                                    if (state["default_room"] != null) {
+                                        val default_room = state["default_room"].toString()
+                                        val rooms = state["rooms"] as JSONArray
+                                        val matched = rooms.filter {
+                                            val room = it as JSONObject
+                                            if (it != null) {
+                                                it["_id"] == default_room
+                                            } else {
+                                                false
+                                            }
+                                        }
+                                        if (!matched.isEmpty()) {
+                                            selection(rooms.indexOf(matched[0]))
+                                        }
+                                    }
+                                }
+                            }
+                            if (errors["default_room"] != null && errors["default_room"] is UserProfileActions.UserProfileErrors) {
+                                val msg = (errors["default_room"] as UserProfileActions.UserProfileErrors).getMessage()
+                                tableRow {
+                                    orientation(LinearLayout.HORIZONTAL)
+                                    textView {
+                                        text(msg)
+                                        textColor(Color.RED)
                                     }
                                 }
                             }
                         }
-                        if (errors["default_room"]!=null && errors["default_room"] is UserProfileActions.UserProfileErrors) {
-                            val msg = (errors["default_room"] as UserProfileActions.UserProfileErrors).getMessage()
-                            tableRow {
-                                orientation(LinearLayout.HORIZONTAL)
-                                textView {
-                                    text(msg)
-                                    textColor(Color.RED)
+                        tableLayout {
+                            size(MATCH, BaseDSL.WRAP)
+                            button {
+                                size(MATCH, BaseDSL.WRAP)
+                                text("UPDATE")
+                                onClick { v ->
+                                    UserProfileActions.update()
                                 }
                             }
                         }
-                    }
-                    tableLayout {
-                        size(MATCH, BaseDSL.WRAP)
-                        button {
+                        tableLayout {
                             size(MATCH, BaseDSL.WRAP)
-                            text("UPDATE")
-                            onClick { v ->
-                                UserProfileActions.update()
-                            }
-                        }
-                    }
-                    tableLayout {
-                        size(MATCH, BaseDSL.WRAP)
-                        button {
-                            size(MATCH, BaseDSL.WRAP)
-                            text("CANCEL")
-                            onClick { v ->
-                                UserProfileActions.cancel()
+                            button {
+                                size(MATCH, BaseDSL.WRAP)
+                                text("CANCEL")
+                                onClick { v ->
+                                    UserProfileActions.cancel()
+                                }
                             }
                         }
                     }
@@ -392,7 +397,7 @@ class UserProfileScreen : BaseScreen(), DatePickerDialog.OnDateSetListener {
         if (source == MediaStore.ACTION_IMAGE_CAPTURE) {
             takePictureIntent.putExtra(MediaStore.EXTRA_OUTPUT,FileProvider.getUriForFile(this,"ru.itport.andrey.chatter.fileprovider",image as File))
         } else if (source == Intent.ACTION_PICK) {
-            takePictureIntent = Intent(source,android.provider.MediaStore.Images.Media.INTERNAL_CONTENT_URI)
+            takePictureIntent = Intent(source,android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI)
         }
         startActivityForResult(takePictureIntent,1)
     }
@@ -407,12 +412,15 @@ class UserProfileScreen : BaseScreen(), DatePickerDialog.OnDateSetListener {
      */
     override fun onActivityResult(requestCode:Int,resultCode:Int,data:Intent) {
         if (resultCode == RESULT_OK) {
-
-            val bmp = BitmapFactory.decodeFile(tmpImageFile.absolutePath)
-            val byteBuffer = ByteBuffer.allocate(bmp.width*bmp.height)
-            Bitmap.createScaledBitmap(bmp, 200, 200, false).copyPixelsToBuffer(byteBuffer)
-            if (bmp!=null) {
-                appStore.dispatch(UserProfileActions.changeProperty("profileImage", byteBuffer.array()))
+            val bmp = FileInputStream(tmpImageFile.absolutePath)
+            var img = bmp.readBytes()
+            if (img.size>0) {
+                appStore.dispatch(UserProfileActions.changeProperty("profileImage", img))
+            } else {
+                val imageUri = data.getData()
+                val stream = contentResolver.openInputStream(imageUri)
+                val img = stream.readBytes()
+                appStore.dispatch(UserProfileActions.changeProperty("profileImage", img))
             }
         }
     }

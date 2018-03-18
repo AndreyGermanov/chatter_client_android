@@ -186,17 +186,15 @@ class UserProfileActions: Actions() {
                 }
             }
 
-            if (form.containsKey("password")) {
-                if (form["password"].toString().isEmpty()) {
-                    errors["password"] = UserProfileErrors.RESULT_ERROR_FIELD_IS_EMPTY
-                } else if (!form.containsKey("confirm_password") || form["confirm_password"].toString().isEmpty()) {
-                    errors["password"] = UserProfileErrors.RESULT_ERROR_PASSWORDS_SHOULD_MATCH
-                } else if (form["password"].toString()!=form["confirm_password"].toString()) {
-                    errors["password"] = UserProfileErrors.RESULT_ERROR_PASSWORDS_SHOULD_MATCH
-                } else {
-                    request["password"] = form["password"].toString()
-                    request["confirm_password"] = form["confirm_password"].toString()
-                }
+            if (form["password"].toString().isEmpty() && !form["password"].toString().isEmpty()) {
+                errors["password"] = UserProfileErrors.RESULT_ERROR_PASSWORDS_SHOULD_MATCH
+            } else if (!form["password"].toString().isEmpty() && (!form.containsKey("confirm_password") || form["confirm_password"].toString().isEmpty())) {
+                errors["password"] = UserProfileErrors.RESULT_ERROR_PASSWORDS_SHOULD_MATCH
+            } else if (form["password"].toString()!=form["confirm_password"].toString()) {
+                errors["password"] = UserProfileErrors.RESULT_ERROR_PASSWORDS_SHOULD_MATCH
+            } else if (!form["password"].toString().isEmpty() && !form["password"].toString().isEmpty()) {
+                request["password"] = form["password"].toString()
+                request["confirm_password"] = form["confirm_password"].toString()
             }
 
             if (errors.size==0) {

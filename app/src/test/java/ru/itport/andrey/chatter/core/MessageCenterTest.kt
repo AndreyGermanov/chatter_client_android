@@ -4,6 +4,10 @@ import org.junit.Test
 
 import org.junit.Assert.*
 import java.util.HashMap
+import org.json.simple.JSONObject
+import org.json.simple.parser.JSONParser
+import java.io.FileInputStream
+import java.util.zip.Adler32
 
 /**
  * Created by Andrey Germanov on 2/28/18.
@@ -102,6 +106,47 @@ class MessageCenterTest {
 
     @Test
     fun cleanPendingResponsesQueue() {
+    }
+
+    @Test
+    /**
+     * Integration test, which sends profile image to server. Requires real server connection
+     */
+    fun sendBinaryDataTest() {
+        msgCenter.onCreate()
+        Thread.sleep(1000)
+        var msg = """{"request_id":"12345","action":"login_user","login":"andrey","password":"123"}"""
+        msgCenter.ws.sendText(msg)
+        Thread.sleep(2000)
+        val parser = JSONParser()
+        val response = parser.parse(msgCenter.lastResponse) as JSONObject
+        val user_id = response["user_id"].toString()
+        val session_id = response["session_id"].toString()
+
+        var updated_profile_img_path = System.getProperty("user.dir")+"/app/src/main/res/drawable/profile.png"
+
+        val stream = FileInputStream(updated_profile_img_path)
+        val img = stream.readBytes()
+        val checksumEngine = Adler32()
+        checksumEngine.update(img)
+        val profile_image_checksum = checksumEngine.value
+
+        val request = JSONObject(mapOf(
+                "user_id" to user_id,
+                "session_id" to session_id,
+                "request_id" to "12345",
+                "action" to "update_user",
+                "first_name" to "Andrew",
+                "profile_image_checksum" to profile_image_checksum
+        ))
+
+        msgCenter.ws.sendText(request.toJSONString())
+        msgCenter.ws.sendBinary(img)
+        Thread.sleep(2000)
+        println(msgCenter.lastResponse)
+
+
+
     }
 
 }

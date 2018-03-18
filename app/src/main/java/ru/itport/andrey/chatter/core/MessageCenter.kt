@@ -56,6 +56,7 @@ class MessageCenter : Service() {
          */
         override fun onError(websocket: WebSocket?, cause: WebSocketException?) {
             super.onError(websocket, cause)
+            println(cause.toString())
         }
 
         /**
@@ -78,6 +79,11 @@ class MessageCenter : Service() {
             val logger = Logger.getLogger("onTextMessage")
             val parser = JSONParser()
             var response = JSONObject()
+
+            if (text!=null) {
+                this@MessageCenter.lastResponse = text
+            }
+
             try {
                 response = parser.parse(text) as JSONObject
             } catch (e:Exception) {
@@ -140,14 +146,22 @@ class MessageCenter : Service() {
         }
     }
 
+    /**
+     * Last response, received from WebSocket server. Used for testing purposes
+     */
+    var lastResponse: String = ""
+
+    /**
+     * Object, which reacts to WebSocketClient events (errors, receive data)
+     */
     val messageListener = WebSocketMessageAdapter()
 
     /**
      * WebSocket server credentials
      */
-    val SERVER_HOST = "192.168.0.184"
-    val SERVER_PORT = 8080
-    val SERVER_ENDPOINT = "/websocket"
+    var SERVER_HOST = "192.168.0.184"
+    var SERVER_PORT = 8080
+    var SERVER_ENDPOINT = "/websocket"
 
 
     /**
@@ -295,6 +309,7 @@ class MessageCenter : Service() {
             if (!testingMode) {
                 try {
                     ws = WebSocketFactory().createSocket("ws://" + SERVER_HOST + ":" + SERVER_PORT + SERVER_ENDPOINT)
+                    ws.maxPayloadSize = 999999999
                     ws.connect()
                 } catch (e: Exception) {
                     connected = false
@@ -381,6 +396,7 @@ class MessageCenter : Service() {
                     result.add(toJSONString(json_request))
                     launch {
                         ws.sendText(toJSONString(json_request))
+                        Thread.sleep(1500)
                         filesToSend.iterator().forEach {
                             ws.sendBinary(it)
                         }
@@ -562,6 +578,7 @@ class MessageCenter : Service() {
             } catch (e:Exception) {
                 try {
                     ws = WebSocketFactory().createSocket("ws://" + SERVER_HOST + ":" + SERVER_PORT + SERVER_ENDPOINT)
+                    ws.maxPayloadSize = 999999999
                     ws.connect()
                     ws.addListener(messageListener)
                 } catch (e:Exception) {
