@@ -44,6 +44,7 @@ class UserProfileActionsTest {
         rooms.add(JSONObject(mapOf("_id" to "r3","name" to "Room 3")))
 
         appStore.dispatch(UserActions.changeProperty("first_name","Bob"))
+
         appStore.dispatch(UserActions.changeProperty("last_name","Johnson"))
         appStore.dispatch(UserActions.changeProperty("gender", "M"))
         appStore.dispatch(UserActions.changeProperty("birthDate",1234567890))
@@ -61,15 +62,16 @@ class UserProfileActionsTest {
         UserProfileActions.update()
         var state = appStore.state["UserProfile"] as JSONObject
         var errors = state["errors"] as JSONObject
+
         assertEquals("Should return INCORRECT USER if no login",
                 UserProfileActions.UserProfileErrors.RESULT_ERROR_INCORRECT_USER_ID,
                 errors["general"])
 
         appStore.dispatch(UserActions.changeProperty("user_id","12345"))
-        UserProfileActions.update();
+        UserProfileActions.update()
         state = appStore.state["UserProfile"] as JSONObject
         errors = state["errors"] as JSONObject
-        assertEquals("Should return INCORRECT USER if no user session available",
+        assertEquals("Should return INCORRECT SESSION if no user session available",
                 UserProfileActions.UserProfileErrors.RESULT_ERROR_INCORRECT_SESSION_ID,
                 errors["general"] as UserProfileActions.UserProfileErrors)
 
@@ -117,7 +119,7 @@ class UserProfileActionsTest {
         state = getStateOf("UserProfile")!!
         errors = state["errors"] as JSONObject
         assertEquals("Should not submit if confirm password not provided",
-                UserProfileActions.UserProfileErrors.RESULT_ERROR_INCORRECT_FIELD_VALUE,errors["password"] as UserProfileActions.UserProfileErrors)
+                UserProfileActions.UserProfileErrors.RESULT_ERROR_PASSWORDS_SHOULD_MATCH,errors["password"] as UserProfileActions.UserProfileErrors)
 
         appStore.dispatch(UserProfileActions.changeProperty("confirm_password","12345  "))
         UserProfileActions.update()
@@ -175,9 +177,12 @@ class UserProfileActionsTest {
         msgCenter.connected = true
         var result = UserProfileActions.update()
         state = getStateOf("UserProfile")!!
+        var userState = getStateOf("User")!!
         assertNull("Should not sent properties, which did not change",result["last_name"])
         assertEquals("Should transform property values to correct format when possible before sending","Jack", result["first_name"].toString())
         assertNotNull("Should send correct request_id",result["request_id"])
+        assertEquals("Should send correct user_id",userState["user_id"].toString(),result["user_id"].toString())
+        assertEquals("Should send correct session_id",userState["session_id"].toString(),result["session_id"].toString())
         assertNotNull("Should contain sender object",result["sender"])
         assertTrue("Sender object should implement MessageCenterResponseReceiver interface",result["sender"] is MessageCenterResponseReceiver)
 
@@ -311,7 +316,7 @@ class UserProfileActionsTest {
         msg = """{"request_id":"${request_id}","status":"ok","status_code":"RESULT_OK","action":"update_user"}"""
         msgCenter.messageListener.onTextMessage(null,msg)
         globalState = appStore.state
-        var userState = getStateOf("User")!!
+        userState = getStateOf("User")!!
         state = getStateOf("UserProfile")!!
         errors = state["errors"] as JSONObject
         assertEquals("Should not contain any errors",0,errors.size)
@@ -352,7 +357,6 @@ class UserProfileActionsTest {
         UserProfileActions.cancel()
         var state = getStateOf("UserProfile")!!
         var errors = state["errors"] as JSONObject
-        println(errors)
         assertEquals("Should not cancel if default room is not set for User",
                 UserProfileActions.UserProfileErrors.RESULT_ERROR_FIELD_IS_EMPTY,
                 errors["default_room"] as UserProfileActions.UserProfileErrors)

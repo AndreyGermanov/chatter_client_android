@@ -62,11 +62,13 @@ class UserProfileScreen : BaseScreen(), DatePickerDialog.OnDateSetListener {
                 val room = item as JSONObject
                 textView {
                     text(room["name"].toString())
+                    onClick { v ->
+                        appStore.dispatch(UserProfileActions.changeProperty("default_room",room["_id"].toString()))
+                    }
                 }
             }
         } else {
             roomList = RenderableAdapter.withItems(MutableList<Any>(1){} ) { index,item ->
-
             }
         }
     }
@@ -324,13 +326,7 @@ class UserProfileScreen : BaseScreen(), DatePickerDialog.OnDateSetListener {
                             spinner {
                                 adapter(roomList)
 
-                                onItemSelected { ad, v, index, index2 ->
-                                    val rooms = state["rooms"] as JSONArray
-                                    val room = rooms.get(index) as JSONObject
-                                    if (room["_id"]!=state["default_room"].toString()) {
-                                        appStore.dispatch(UserProfileActions.changeProperty("default_room", room["_id"]!!))
-                                    }
-                                }
+
                                 if (state["default_room"]!=null) {
                                     val default_room = state["default_room"].toString()
                                     val rooms = state["rooms"] as JSONArray

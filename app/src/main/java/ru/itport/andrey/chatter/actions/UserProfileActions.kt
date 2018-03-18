@@ -78,7 +78,7 @@ class UserProfileActions: Actions() {
          * @param property_value Value of property to set
          * @return Action structure as a JSONObject for reducer
          */
-        fun changeProperty(property_name: String, property_value: Any?): JSONObject {
+        fun changeProperty(property_name: String, property_value: Any): JSONObject {
             return JSONObject(mapOf(
                     "type" to UserProfileActionTypes.CHANGE_PROPERTY,
                     "property_name" to property_name,
@@ -103,25 +103,31 @@ class UserProfileActions: Actions() {
                 errors["general"] = UserProfileErrors.RESULT_ERROR_INCORRECT_USER_ID
                 appStore.dispatch(this.changeProperty("errors",errors))
                 return request
+            } else {
+                request["user_id"] = userState["user_id"].toString()
             }
 
             if (userState["session_id"].toString().isEmpty()) {
                 errors["general"] = UserProfileErrors.RESULT_ERROR_INCORRECT_SESSION_ID
                 appStore.dispatch(this.changeProperty("errors",errors))
                 return request
+            } else {
+                request["session_id"] = userState["session_id"].toString()
             }
 
-            var form = params
-            if (form==null) {
+            var form = JSONObject()
+            if (params==null) {
                 form = getStateOf("UserProfile")!!
+            } else {
+                form = params
             }
 
             val nameValidatePattern = "[A-Za-z\\ ]+"
 
             fun processField(fieldName:String) {
-                var form = form as JSONObject
-                if (form.containsKey(fieldName)) {
-                    var value = form[fieldName].toString().trim().toLowerCase()
+                var form2 = form as JSONObject
+                if (form2.containsKey(fieldName)) {
+                    var value = form2[fieldName].toString().trim().toLowerCase()
                     value = value.capitalize()
                     if (value.isEmpty()) {
                         errors[fieldName] = UserProfileErrors.RESULT_ERROR_FIELD_IS_EMPTY
@@ -184,11 +190,12 @@ class UserProfileActions: Actions() {
                 if (form["password"].toString().isEmpty()) {
                     errors["password"] = UserProfileErrors.RESULT_ERROR_FIELD_IS_EMPTY
                 } else if (!form.containsKey("confirm_password") || form["confirm_password"].toString().isEmpty()) {
-                    errors["password"] = UserProfileErrors.RESULT_ERROR_INCORRECT_FIELD_VALUE
-                } else if (form["password"]!=form["confirm_password"]) {
+                    errors["password"] = UserProfileErrors.RESULT_ERROR_PASSWORDS_SHOULD_MATCH
+                } else if (form["password"].toString()!=form["confirm_password"].toString()) {
                     errors["password"] = UserProfileErrors.RESULT_ERROR_PASSWORDS_SHOULD_MATCH
                 } else {
                     request["password"] = form["password"].toString()
+                    request["confirm_password"] = form["confirm_password"].toString()
                 }
             }
 
@@ -198,7 +205,7 @@ class UserProfileActions: Actions() {
                     appStore.dispatch(UserProfileActions.changeProperty("errors",errors))
                     return request
                 } else if (!(form["show_progress_indicator"] as Boolean)) {
-                    if (request.size>0) {
+                    if (request.size>2) {
                         request["request_id"] = UUID.randomUUID().toString()
                         request["sender"] = this
                         request["action"] = "update_user"
@@ -217,7 +224,6 @@ class UserProfileActions: Actions() {
                                 request["profileImage"] = form["profileImage"] as ByteArray
                             }
                         }
-
                         this.messageCenter.addRequest(request)
                         appStore.dispatch(UserProfileActions.changeProperty("show_progress_indicator", true))
                     } else {
@@ -227,7 +233,7 @@ class UserProfileActions: Actions() {
                     return request
                 }
             } else {
-                if (request.size == 0) {
+                if (request.size == 2 && (errors["password"] as UserProfileErrors) != UserProfileErrors.RESULT_ERROR_PASSWORDS_SHOULD_MATCH) {
                     appStore.dispatch(UserProfileActions.changeProperty("errors",JSONObject(mapOf("general" to UserProfileErrors.RESULT_ERROR_EMPTY_REQUEST))))
                 } else {
                     appStore.dispatch(UserProfileActions.changeProperty("errors", errors))
@@ -259,7 +265,7 @@ class UserProfileActions: Actions() {
                     appStore.dispatch(UserProfileActions.changeProperty("gender",userState["gender"].toString()))
                     appStore.dispatch(UserProfileActions.changeProperty("birthDate",userState["birthDate"].toString().toInt()))
                     appStore.dispatch(UserProfileActions.changeProperty("default_room",userState["default_room"].toString()))
-                    appStore.dispatch(UserProfileActions.changeProperty("profileImage",userState["profileImage"]))
+                    appStore.dispatch(UserProfileActions.changeProperty("profileImage",userState["profileImage"]!!))
                     appStore.dispatch(UserProfileActions.changeProperty("password",""))
                     appStore.dispatch(UserProfileActions.changeProperty("confirm_password",""))
                     appStore.dispatch(UserProfileActions.changeProperty("errors",JSONObject()))
