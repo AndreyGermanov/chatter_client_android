@@ -7,7 +7,7 @@ import java.util.HashMap
 import org.json.simple.JSONObject
 import org.json.simple.parser.JSONParser
 import java.io.FileInputStream
-import java.util.zip.Adler32
+import java.util.zip.CRC32
 
 /**
  * Created by Andrey Germanov on 2/28/18.
@@ -127,7 +127,7 @@ class MessageCenterTest {
 
         val stream = FileInputStream(updated_profile_img_path)
         val img = stream.readBytes()
-        val checksumEngine = Adler32()
+        val checksumEngine = CRC32()
         checksumEngine.update(img)
         val profile_image_checksum = checksumEngine.value
 
@@ -143,10 +143,6 @@ class MessageCenterTest {
         msgCenter.ws.sendText(request.toJSONString())
         msgCenter.ws.sendBinary(img)
         Thread.sleep(2000)
-        println(msgCenter.lastResponse)
-
-
-
     }
 
 }

@@ -62,6 +62,7 @@ dependencies {
     androidTestCompile('com.android.support.test.espresso:espresso-core:2.2.2',	{
         exclude	group:	'com.android.support',	module:	'support-annotations'
     })
+    androidTestImplementation 'com.mauriciotogneri:greencoffee:3.0.0'
 }
 
 dependencies {

@@ -11,7 +11,7 @@ import ru.itport.andrey.chatter.store.AppScreens
 import ru.itport.andrey.chatter.store.appStore
 import ru.itport.andrey.chatter.store.getStateOf
 import java.io.FileInputStream
-import java.util.zip.Adler32
+import java.util.zip.CRC32
 
 /**
  * Created by Andrey Germanov on 3/16/18.
@@ -48,7 +48,9 @@ class UserProfileActionsTest {
         appStore.dispatch(UserActions.changeProperty("last_name","Johnson"))
         appStore.dispatch(UserActions.changeProperty("gender", "M"))
         appStore.dispatch(UserActions.changeProperty("birthDate",1234567890))
+        appStore.dispatch(UserActions.changeProperty("default_room",""))
         appStore.dispatch(UserProfileActions.changeProperty("rooms",rooms))
+        appStore.dispatch(UserProfileActions.changeProperty("default_room",""))
         appStore.dispatch(Actions.changeActivity(AppScreens.USER_PROFILE))
         var stream = FileInputStream(default_profile_img_path)
         appStore.dispatch(UserActions.changeProperty("profileImage",stream.readBytes()))
@@ -207,7 +209,7 @@ class UserProfileActionsTest {
 
         stream = FileInputStream(updated_profile_img_path)
         var img = stream.readBytes()
-        var checksumEngine = Adler32()
+        var checksumEngine = CRC32()
         checksumEngine.update(img)
         var updated_img_checksum = checksumEngine.value
         Thread.sleep(1000)
@@ -267,7 +269,7 @@ class UserProfileActionsTest {
         assertEquals("Should return field is empty error in correct format",UserProfileActions.UserProfileErrors.RESULT_ERROR_FIELD_IS_EMPTY,
                 errors["first_name"] as UserProfileActions.UserProfileErrors)
         result = UserProfileActions.update()
-        Thread.sleep(1000)
+        Thread.sleep(2000)
         request_id = result["request_id"].toString()
 
         msg = """{"request_id":"${request_id}","status":"error","status_code":"RESULT_ERROR_INCORRECT_FIELD_VALUE","action":"update_user","field":"last_name"}"""
@@ -276,10 +278,10 @@ class UserProfileActionsTest {
         errors = state["errors"] as JSONObject
         assertEquals("Should return incorrect field error in correct format",UserProfileActions.UserProfileErrors.RESULT_ERROR_INCORRECT_FIELD_VALUE,
                 errors["last_name"] as UserProfileActions.UserProfileErrors)
-        result = UserProfileActions.update()
-        Thread.sleep(1000)
-        request_id = result["request_id"].toString()
 
+        result = UserProfileActions.update()
+        Thread.sleep(2000)
+        request_id = result["request_id"].toString()
         msg = """{"request_id":"${request_id}","status":"error","status_code":"RESULT_ERROR_INCORRECT_FIELD_VALUE","action":"update_user","field":"fakefld"}"""
         msgCenter.messageListener.onTextMessage(null,msg)
         state = getStateOf("UserProfile")!!
@@ -287,7 +289,7 @@ class UserProfileActionsTest {
         assertEquals("Should return unknown error if field for which error is intended is not found",UserProfileActions.UserProfileErrors.RESULT_ERROR_UNKNOWN,
                 errors["general"] as UserProfileActions.UserProfileErrors)
         result = UserProfileActions.update()
-        Thread.sleep(1000)
+        Thread.sleep(2000)
         request_id = result["request_id"].toString()
 
         msg = """{"request_id":"${request_id}","status":"error","status_code":"RESULT_ERROR_IMAGE_UPLOAD","action":"update_user"}"""
@@ -297,7 +299,7 @@ class UserProfileActionsTest {
         assertEquals("Should return profile image upload error in correct format",UserProfileActions.UserProfileErrors.RESULT_ERROR_IMAGE_UPLOAD,
                 errors["general"] as UserProfileActions.UserProfileErrors)
         result = UserProfileActions.update()
-        Thread.sleep(1000)
+        Thread.sleep(2000)
         request_id = result["request_id"].toString()
 
         msg = """{"request_id":"${request_id}","status":"error","status_code":"RESULT_ERROR_PASSWORDS_SHOULD_MATCH","action":"update_user"}"""
@@ -309,7 +311,7 @@ class UserProfileActionsTest {
                 errors["password"] as UserProfileActions.UserProfileErrors)
         assertEquals("Should stay on user profile screen",AppScreens.USER_PROFILE,globalState["current_activity"] as AppScreens)
         result = UserProfileActions.update()
-        Thread.sleep(1000)
+        Thread.sleep(2000)
         request_id = result["request_id"].toString()
 
         // Test successful response

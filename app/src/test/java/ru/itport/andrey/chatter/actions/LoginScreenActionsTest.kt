@@ -15,16 +15,19 @@ import org.json.simple.JSONArray
 import org.json.simple.JSONObject
 import org.junit.Assert.*
 import org.junit.Test
+import redux.createStore
 import ru.itport.andrey.chatter.R
 import ru.itport.andrey.chatter.core.MessageCenter
+import ru.itport.andrey.chatter.reducers.rootReducer
 import ru.itport.andrey.chatter.store.AppScreens
 import ru.itport.andrey.chatter.store.LoginFormMode
+import ru.itport.andrey.chatter.store.appState
 import ru.itport.andrey.chatter.store.appStore
 import java.io.File
 import java.io.FileInputStream
 import java.nio.Buffer
 import java.nio.ByteBuffer
-import java.util.zip.Adler32
+import java.util.zip.CRC32
 
 class LoginScreenActionsTest {
 
@@ -163,6 +166,8 @@ class LoginScreenActionsTest {
     @Test
     fun login() {
         // Client side response handling
+        appStore.dispatch(LoginScreenActions.changeProperty("login",""))
+        appStore.dispatch(LoginScreenActions.changeProperty("password",""))
         LoginScreenActions.login(null)
         var state = appStore.state["LoginForm"] as JSONObject
         assertNotNull("Should contain errors object",state["errors"])
@@ -280,17 +285,11 @@ class LoginScreenActionsTest {
         bm.inJustDecodeBounds = false
 
         var stream = FileInputStream(System.getProperty("user.dir")+"/app/src/main/res/drawable/user.png")
-        var bytes = stream.readBytes()
-        var bmp = BitmapFactory.decodeByteArray(bytes,0,bytes.size,bm)
-        println(bmp)
-        var buffer = ByteBuffer.allocate(bmp.width*bmp.height)
-        var img = buffer.array()
-        println(img.size)
-        bmp = BitmapFactory.decodeFile(System.getProperty("user.dir")+"/app/src/main/res/drawable/profile.png",bm)
-        buffer = ByteBuffer.allocate(bmp.width*bmp.height)
-        var fake_img = buffer.array()
+        var img = stream.readBytes()
+        stream = FileInputStream(System.getProperty("user.dir")+"/app/src/main/res/drawable/profile.png")
+        var fake_img = stream.readBytes()
 
-        var checksumEngine = Adler32()
+        var checksumEngine = CRC32()
         checksumEngine.update(img)
         var checksum = checksumEngine.value
         LoginScreenActions.login()
@@ -344,9 +343,7 @@ class LoginScreenActionsTest {
         userProfile = state["UserProfile"] as JSONObject
         assertNotNull("Should update profile with correct image",userState["profileImage"])
         assertNotNull("Should update profile with correct image",userProfile["profileImage"])
-        val profileImageBitmap = userState["profileImage"] as Bitmap
-        buffer = ByteBuffer.allocate(profileImageBitmap.width*profileImageBitmap.height)
-        val profileImage = buffer.array()
+        val profileImage = userState["profileImage"] as ByteArray
         checksumEngine.reset()
         checksumEngine.update(profileImage)
         assertEquals("Updated profile image must have the same checksum as image, which sent by server",checksum,checksumEngine.value)

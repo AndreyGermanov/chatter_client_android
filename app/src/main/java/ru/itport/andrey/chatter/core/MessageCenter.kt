@@ -13,7 +13,8 @@ import ru.itport.andrey.chatter.utils.toJSONString
 import java.util.*
 import java.util.logging.Level
 import java.util.logging.Logger
-import java.util.zip.Adler32
+import java.util.zip.CRC32
+
 import kotlin.collections.HashMap
 
 /**
@@ -120,7 +121,7 @@ class MessageCenter : Service() {
             super.onBinaryMessage(websocket, binary)
             val logger = Logger.getLogger("onBinaryMessage")
             if (binary != null) {
-                val checksumEngine = Adler32()
+                val checksumEngine = CRC32()
                 checksumEngine.update(binary)
                 if (pending_files_queue.containsKey(checksumEngine.value)) {
                     val pending_file = pending_files_queue[checksumEngine.value] as HashMap<String,Any>

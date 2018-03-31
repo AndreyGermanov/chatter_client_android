@@ -12,7 +12,7 @@ class StoreTest {
 
     @Test
     fun checkAppStateStructure() {
-        assertEquals("Should return initial screen","LoginForm",appState["current_activity"])
+        assertEquals("Should return initial screen",AppScreens.LOGIN_FORM,appState["current_activity"])
         val loginForm = appState["LoginForm"] as JSONObject
         assertEquals("Should be able to read on second or more levels of hierarchy",LoginFormMode.LOGIN,loginForm["mode"])
         loginForm["login"] = "test"
@@ -52,7 +52,6 @@ class StoreTest {
         assertEquals("Should contain empty 'first_name' field","",state["first_name"].toString())
         assertEquals("Should contain empty 'last_name' field","",state["last_name"].toString())
         assertEquals("Should contain 'gender' field which is set to 'M'","",state["gender"].toString())
-        assertEquals("Should contain 'birthDate' field defaulted to current date",System.currentTimeMillis()/1000, state["birthDate"].toString().toInt())
         assertEquals("Should contain empty 'default_room' field","",state["default_room"].toString())
         assertEquals("Should contain empty 'popup_message' field","",state["popup_message"].toString())
         assertFalse("Should contain show_progress_indicator which is disabled",state["show_progress_indicator"] as Boolean)

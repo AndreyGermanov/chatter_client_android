@@ -13,7 +13,7 @@ import ru.itport.andrey.chatter.utils.isValidEmail
 import java.util.*
 import java.util.logging.Level
 import java.util.logging.Logger
-import java.util.zip.Adler32
+import java.util.zip.CRC32
 import kotlin.collections.HashMap
 
 /**
@@ -209,7 +209,6 @@ class LoginScreenActions: Actions() {
             } else {
                 form = params
             }
-
             val errors = JSONObject()
             appStore.dispatch(changeProperty("errors",errors))
             if (form["login"]==null || form["login"].toString().isEmpty()) {
@@ -397,7 +396,7 @@ class LoginScreenActions: Actions() {
         fun handleBinaryDataResponse(checksum:Long,data:ByteArray) {
             val logger = Logger.getLogger("handleBinaryDataResponse")
             val pending_files = messageCenter.getPendingFilesQueue()
-            val checkSumEngine = Adler32()
+            val checkSumEngine = CRC32()
             checkSumEngine.update(data)
             if (pending_files.containsKey(checksum) && checksum == checkSumEngine.value) {
                 val pending_file = pending_files[checksum] as HashMap<String,Any>

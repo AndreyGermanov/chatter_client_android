@@ -13,7 +13,7 @@ import ru.itport.andrey.chatter.store.AppScreens
 import ru.itport.andrey.chatter.store.appStore
 import ru.itport.andrey.chatter.store.getStateOf
 import java.util.*
-import java.util.zip.Adler32
+import java.util.zip.CRC32
 
 
 /**
@@ -96,6 +96,7 @@ class UserProfileActions: Actions() {
             val userState = getStateOf("User")!!
             val errors = JSONObject()
             val request = HashMap<String,Any>()
+            val request_id = UUID.randomUUID().toString()
 
             appStore.dispatch(UserProfileActions.changeProperty("errors",errors))
 
@@ -204,11 +205,11 @@ class UserProfileActions: Actions() {
                     return request
                 } else if (!(form["show_progress_indicator"] as Boolean)) {
                     if (request.size>2) {
-                        request["request_id"] = UUID.randomUUID().toString()
+                        request["request_id"] = request_id
                         request["sender"] = this
                         request["action"] = "update_user"
                         if (form.containsKey("profileImage") && form["profileImage"] is ByteArray) {
-                            val checksumEngine = Adler32()
+                            val checksumEngine = CRC32()
                             checksumEngine.update(form["profileImage"] as ByteArray)
                             val checksum_to_send = checksumEngine.value
                             var original_checksum:Long = 0
@@ -231,8 +232,14 @@ class UserProfileActions: Actions() {
                     return request
                 }
             } else {
-                if (request.size == 2 && (errors["password"] as UserProfileErrors) != UserProfileErrors.RESULT_ERROR_PASSWORDS_SHOULD_MATCH) {
-                    appStore.dispatch(UserProfileActions.changeProperty("errors",JSONObject(mapOf("general" to UserProfileErrors.RESULT_ERROR_EMPTY_REQUEST))))
+                if (request.size == 2 && errors["password"]!=null) {
+                    if ((errors["password"] as UserProfileErrors) != UserProfileErrors.RESULT_ERROR_PASSWORDS_SHOULD_MATCH) {
+                        appStore.dispatch(UserProfileActions.changeProperty("errors", JSONObject(mapOf("general" to UserProfileErrors.RESULT_ERROR_EMPTY_REQUEST))))
+                    } else {
+                        appStore.dispatch(UserProfileActions.changeProperty("errors", errors))
+                    }
+                } else if (request.size == 2) {
+                    appStore.dispatch(UserProfileActions.changeProperty("errors", JSONObject(mapOf("general" to UserProfileErrors.RESULT_ERROR_EMPTY_REQUEST))))
                 } else {
                     appStore.dispatch(UserProfileActions.changeProperty("errors", errors))
                 }
